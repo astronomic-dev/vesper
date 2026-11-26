@@ -1,0 +1,15 @@
+---
+/**
+ * EmDash: the link that opens the search plugin's dialog. A placement (`data-search-placement`) works with the
+ * plugin's takeover setting off, so a buyer has nothing to turn on. The plugin prints the dialog's script itself.
+ * Its box is the link's (`contents`), so it adds nothing to a row.
+ * The dialog's box says the theme's own words; opened by the shortcut it says the plugin's "Search box text" setting.
+ */
+import { strings } from "~/theme.strings";
+import type { TriggerProps } from "../types";
+
+type Props = TriggerProps;
+const { href, current, main, class: className, ...rest } = Astro.props;
+---
+
+<span class="contents" data-search-placement data-search-open="modal" data-search-placeholder={strings.search.dialog.placeholder}><a href={href} class={className} aria-current={current ? "page" : undefined} {...rest}><slot /></a></span>

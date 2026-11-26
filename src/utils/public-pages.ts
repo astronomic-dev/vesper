@@ -16,7 +16,7 @@
 import { latestDate } from "@astronomic/theme-core/date";
 import { listedPages, shownEntries } from "@astronomic/theme-core/feeds";
 import { declaredOrigin, publicOrigin } from "@astronomic/theme-core/seo";
-import { plainHeading } from "@astronomic/ui/lib/emphasis.ts";
+import { plainHeading } from "@astronomic-dev/ui/lib/emphasis.ts";
 import type { APIContext } from "astro";
 import { useContent, type Page, type Post, type Project, type Settings, type Term } from "~/content";
 import { strings } from "~/theme.strings";

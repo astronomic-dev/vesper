@@ -3,7 +3,7 @@
  * search engines are left out.
  */
 import { feedItems, rssResponse } from "@astronomic/theme-core/feeds";
-import { plainHeading } from "@astronomic/ui/lib/emphasis.ts";
+import { plainHeading } from "@astronomic-dev/ui/lib/emphasis.ts";
 import type { APIRoute } from "astro";
 import { type Post, useContent } from "~/content";
 import { strings } from "~/theme.strings";

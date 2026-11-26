@@ -221,21 +221,29 @@
 }
 
 /*
- * On <body>: the phone menu's links 48px tall (comp ".menu-sheet a"), and its light and dark switch the labeled button
- * (SiteNav's data-mode-label) in place of the bar's icon (comp ".menu-sheet .btn"). The kit's MobileMenu moves its
- * panel to the end of <body> when it opens, so the rules sit here, not on the nav.
+ * On <body>: the phone menu's links 48px tall (comp ".menu-sheet a"), and its search and its light and dark switch the
+ * labeled buttons (SiteNav's data-nav-search, data-mode-label) in place of the bar's icons (comp ".menu-sheet .btn").
+ * The kit's MobileMenu moves its panel to the end of <body> when it opens, so the rules sit here, not on the nav.
  */
 @utility v-site {
   & dialog[data-mobile-menu] nav a {
     min-height: 3rem;
   }
   & [data-mode-label],
-  & dialog[data-mobile-menu] [data-mode-toggle]:not([data-mode-label]) {
+  & [data-nav-search="label"],
+  & dialog[data-mobile-menu] [data-mode-toggle]:not([data-mode-label]),
+  & dialog[data-mobile-menu] [data-nav-search="icon"] {
     display: none;
   }
-  & dialog[data-mobile-menu] [data-mode-label] {
+  & dialog[data-mobile-menu] :is([data-mode-label], [data-nav-search="label"]) {
     display: inline-flex;
     margin-top: 0.5rem;
+  }
+  /* The search's stand-in box is fixed inside the open menu: a translate, also a running one, would hold it to
+     the menu's box. */
+  & dialog[data-mobile-menu]:has([data-search-proxy]) {
+    translate: none;
+    transition: none;
   }
 }
 

@@ -9,12 +9,30 @@
  * kit's one scroll lock applies (decision 0015, principle 4). After a ClientRouter swap the old page's dialogs are
  * unbound and the new page's main dialog is bound, so the shortcut keeps working.
  */
-import { createController, fill, loadSearcher, type Controller, type State } from "@astronomic-dev/search/controller";
+import { createController, fill, loadSearcher, type Controller, type Prefetch, type State } from "@astronomic-dev/search/controller";
 import { createSearch, minisearchEngine, type GroupBy, type IndexSettings } from "@astronomic-dev/search/core";
 import { bindTabs, createIdFor, isSafeUrl, marked, mountSearch } from "@astronomic-dev/search/dom";
-import { openModal } from "./modal";
-import { CONFIG, cloneTemplate, crumbOf, fillOption, fillSuggested, groupCount, markAttrs, ownValue, parseConfig, seeAllHref, suggestedLinks, type SearchConfig } from "./search";
-import { DIALOG, TRIGGER, triggerKey } from "./search-boot";
+import type { TouchDraft } from "@astronomic-dev/search/boot";
+import { leaves, openModal, plain } from "./modal";
+import { CONFIG, DIALOG, TRIGGER, cloneTemplate, crumbOf, fillOption, fillSuggested, groupCount, markAttrs, ownValue, parseConfig, seeAllHref, suggestedLinks, triggerKey, triggerPage, type SearchConfig } from "./search";
+
+/** The manifest and index file loads the shell's script started on first use (see `usePrefetch`). */
+let early: Prefetch | undefined;
+
+/** Hands over the loads the shell's script started alongside this app's, for the first load of their index. */
+export function usePrefetch(p: Prefetch): void {
+	early = p;
+}
+
+// A load started on the page before a ClientRouter swap is not kept for a later page.
+document.addEventListener("astro:after-swap", () => (early = undefined));
+
+/** The started loads, once, and only for their own index. */
+function take(index: string): Prefetch | undefined {
+	const p = early?.index === index ? early : undefined;
+	if (p) early = undefined;
+	return p;
+}
 
 interface Parts {
 	panel: HTMLElement;
@@ -36,7 +54,11 @@ interface Bound {
 	controller: Controller;
 	parts: Parts;
 	triggers: HTMLElement[];
+	/** The trigger that opened the dialog (the main one for the shortcut), for "See all results". */
+	opener: HTMLElement | null;
 	settings: IndexSettings | null;
+	/** True while openTouch opens the dialog: the show step marks that open, and only that one, motion-off. */
+	instant: boolean;
 	idFor: (recordId: string) => string;
 	/** "See all results" with no query: the shell's search page link. */
 	seeAll: string;
@@ -128,7 +150,9 @@ function make(dialog: HTMLDialogElement): Bound {
 		config,
 		parts,
 		triggers: [],
+		opener: null,
 		settings: null,
+		instant: false,
 		idFor: createIdFor(index),
 		seeAll: parts.seeAll.getAttribute("href") || "/search",
 		unmount: null,
@@ -150,6 +174,7 @@ function make(dialog: HTMLDialogElement): Bound {
 					fetch: (url: string, init?: RequestInit) => fetch(url, init),
 					engine: minisearchEngine,
 					createSearch,
+					prefetch: take(index),
 				});
 				b.settings = searcher.settings;
 				if (group === null) return searcher;
@@ -160,6 +185,20 @@ function make(dialog: HTMLDialogElement): Bound {
 	};
 	parts.close.addEventListener("click", () => b.controller.close());
 	dialog.addEventListener("click", (e) => action(b, e));
+	// Any other link in the dialog followed in this tab ("See all results", a browse or suggested link, a link in the
+	// preview): the search closes, then the modal its opener is in, before the link (or ClientRouter) goes, so neither a
+	// jump on this page nor the page kept for Back shows them open. A result is the combobox's (it prevents the click and
+	// goes through navigate). A link opened elsewhere (a modifier key, a target, a download) leaves both open.
+	dialog.addEventListener("click", (e) => {
+		const link = (e.target as Element | null)?.closest?.("a[href]");
+		if (!link || !dialog.contains(link) || e.defaultPrevented || !plain(e) || leaves(link)) return;
+		const outer = b.opener?.closest("dialog[open]");
+		b.controller.close();
+		if (dialog.open) dialog.close();
+		if (outer instanceof HTMLDialogElement) outer.close();
+	});
+	// The motion-off mark is the open's it was set for: a late close event never takes it from a newer open.
+	dialog.addEventListener("close", () => dialog.open || dialog.removeAttribute("data-search-instant"));
 	b.controller.subscribe((s) => render(b, s));
 	render(b, b.controller.getState());
 	return b;
@@ -187,7 +226,23 @@ function bind(dialog: HTMLDialogElement): Bound {
 		idFor: b.idFor,
 		keys: main && triggers.includes(main) ? b.config.keys : [],
 		scrollLock: false,
-		show: (d) => openModal(d, document.documentElement),
+		// Each open sets or clears the motion-off mark: on for a tap's open (openTouch), off for any other.
+		show: (d) => {
+			d.toggleAttribute("data-search-instant", b.instant);
+			openModal(d, document.documentElement);
+		},
+		// A result followed in this tab first closes the modal the opener is in (a MobileMenu drawer, which stays open under
+		// the search), so neither a jump on this page nor the page kept for Back shows it open over the target.
+		navigate: (url, newTab) => {
+			if (newTab) return void window.open(url, "_blank", "noopener");
+			b.opener?.closest("dialog[open]")?.close();
+			location.assign(url);
+		},
+		// "See all results" follows the trigger that opened the dialog; the shortcut is bound only on the main button's.
+		onOpen: (t) => {
+			b.opener = t ?? main;
+			setSeeAll(b, b.controller.getState().query);
+		},
 	});
 	return b;
 }
@@ -216,6 +271,35 @@ export function prepare(trigger: HTMLElement, _keys: string[] = []): Controller 
 	const b = bind(dialog);
 	b.controller.preload().catch(() => {});
 	return b.controller;
+}
+
+/**
+ * A tap's open (the shell's touchOpens view, Search.astro): opens the dialog for `trigger` as its click does (the
+ * trigger stays the opener, so focus returns to it, and a starting search keeps its start), with the dialog's and its
+ * backdrop's fade off for this one open. Once the dialog is open it always puts in the text typed in the stand-in
+ * (only if it was changed) and its caret, and gives the input the focus again (preventScroll) if it missed it, so the
+ * text is kept even when the focus is lost. True when the dialog's input has the focus; with false the package's helper
+ * replays no press.
+ */
+export function openTouch(trigger: HTMLElement, draft: TouchDraft): boolean {
+	const dialog = prepare(trigger) && dialogFor(trigger);
+	const b = dialog && bound.get(dialog);
+	if (!dialog || !b) return false;
+	if (!dialog.open) {
+		b.instant = true;
+		try {
+			trigger.click();
+		} finally {
+			b.instant = false;
+		}
+	}
+	if (!dialog.open) return false;
+	const input = b.parts.input;
+	const root = input.getRootNode() as Document | ShadowRoot;
+	if (draft.changed) b.controller.input(draft.value);
+	if (root.activeElement !== input) input.focus({ preventScroll: true });
+	input.setSelectionRange(draft.start, draft.end, draft.direction ?? undefined);
+	return root.activeElement === input;
 }
 
 document.addEventListener("astro:after-swap", () => {
@@ -424,6 +508,11 @@ function facets(b: Bound, s: State): HTMLElement[] {
 	return out;
 }
 
+/** "See all results": the href of the trigger that opened the dialog, else the shell's search page (see triggerPage). */
+function setSeeAll(b: Bound, query: string): void {
+	b.parts.seeAll.href = seeAllHref(triggerPage(b.opener ?? undefined, b.seeAll), query);
+}
+
 function render(b: Bound, s: State): void {
 	const last = b.last;
 	const changed = (k: keyof State) => last[k] !== s[k];
@@ -453,8 +542,7 @@ function render(b: Bound, s: State): void {
 	replace(p.facets, rows);
 	p.facets.hidden = rows.length === 0;
 
-	// The button's own href (a SearchButton with `href`), else the shell's search page.
-	p.seeAll.href = seeAllHref(b.triggers[0]?.getAttribute("href") || b.seeAll, s.query);
+	setSeeAll(b, s.query);
 	// No results: nothing more to see, so "See all results" hides.
 	p.seeAll.hidden = s.query.trim() !== "" && s.result?.total === 0;
 }

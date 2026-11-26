@@ -5,11 +5,11 @@
  * config file with its one reader, getConfig().
  */
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { afterEach, test } from "node:test";
-import { contrast } from "@astronomic/ui/system/contrast";
+import { contrast } from "@astronomic-dev/ui/system/contrast";
 import { DARK_MEDIA, hex, propsOf, readRules } from "../lib/css.mjs";
-import { accentFileProblems, LOOK_IDS, lookRules, lookTokens, paperOf, RING, skinChecks, TEXT } from "../lib/skins.mjs";
+import { accentFileProblems, LOOK_IDS, lookRules, lookTokens, paperOf, RING, searchChecks, searchTokens, skinChecks, TEXT } from "../lib/skins.mjs";
 import * as theme from "../../src/theme.config.ts";
 import * as configModule from "../../src/utils/config.ts";
 
@@ -79,7 +79,7 @@ test("Clear's two dark rules hold every comp dark token and agree", () => {
 });
 
 test("dark mode sets every token the kit's dark rules set (theirs outrank :root), in every look: the look's and the preset's together", () => {
-	const kit = readRules(new URL(import.meta.resolve("@astronomic/ui/tokens.css")));
+	const kit = readRules(new URL(import.meta.resolve("@astronomic-dev/ui/tokens.css")));
 	const kitDark = Object.keys(propsOf(kit, ':root:not([data-theme="light"])', DARK_MEDIA));
 	assert.ok(kitDark.length > 10, "the kit's dark rule");
 	for (const look of LOOK_IDS) {
@@ -215,6 +215,19 @@ test("contrast for every accent in every look and mode: text, the Now chip, the 
 	assert.deepEqual(failing, []);
 });
 
+test("the search dialog: every text in every accent, look and mode, and every token the package reads is mapped", () => {
+	const checks = searchChecks();
+	assert.equal(checks.length, 4 * 3 * 2 * 23, "every pair counted");
+	const failing = checks.filter((c) => !(c.value >= c.min)).map((c) => `${c.name}: ${c.value.toFixed(2)} < ${c.min}`);
+	assert.deepEqual(failing, []);
+	// A token left out would follow the system's mode, not the page's. The width is the same in both.
+	const src = new URL("../../node_modules/@astronomic-dev/search/", import.meta.url);
+	const files = readdirSync(src, { recursive: true }).filter((f) => /^(src|dist)\/.*\.[cm]?[jt]s$/.test(f));
+	const read = new Set(files.flatMap((f) => readFileSync(new URL(f, src), "utf8").match(/--search-[a-z-]+(?=[,)])/g) ?? []));
+	assert.ok(read.has("--search-bg"), "the package's tokens are found");
+	assert.deepEqual([...read].filter((name) => !(name in searchTokens())), ["--search-width"]);
+});
+
 test("the preset: gutter, section space, body text and the cut's rounding, with the phone values", () => {
 	matches(propsOf(preset, ":root"), SHARED, "shared");
 	matches(propsOf(preset, ":root", PHONE), SHARED_PHONE, "shared phones");
@@ -270,14 +283,14 @@ test("contrast: text on every ground, the accent as text and the button's text; 
 
 test("global.css imports the layers in order, and scans only the kit and theme-core", () => {
 	const global = text("global.css");
-	const order = ["tailwindcss", "@astronomic/ui/tokens.css", "./fonts.css", "@astronomic/ui/theme.css", "./vesper.css", "./looks/clear.css", "./accents/glacier.css", "./collage.css", "./prose.css"];
+	const order = ["tailwindcss", "@astronomic-dev/ui/tokens.css", "./fonts.css", "@astronomic-dev/ui/theme.css", "./vesper.css", "./looks/clear.css", "./accents/glacier.css", "./collage.css", "./prose.css"];
 	const found = [...global.matchAll(/@import "([^"]+)";/g)].map((m) => m[1]);
 	assert.deepEqual(found.filter((f) => order.includes(f)), order);
 	// Every look and accent file that exists is imported (looks before accents), so a look set per request still styles the page.
 	for (const id of LOOKS) if (existsSync(at(`looks/${id}.css`))) assert.ok(found.includes(`./looks/${id}.css`), `looks/${id}.css`);
 	for (const id of ACCENTS) if (existsSync(at(`accents/${id}.css`))) assert.ok(found.includes(`./accents/${id}.css`), `accents/${id}.css`);
 	assert.ok(found.findLastIndex((f) => f.startsWith("./looks/")) < found.findIndex((f) => f.startsWith("./accents/")), "looks before accents");
-	assert.deepEqual([...global.matchAll(/@source "([^"]+)";/g)].map((m) => m[1]), ["../../node_modules/@astronomic/ui/src", "../../node_modules/@astronomic/theme-core/src"]);
+	assert.deepEqual([...global.matchAll(/@source "([^"]+)";/g)].map((m) => m[1]), ["../../node_modules/@astronomic-dev/ui/src", "../../node_modules/@astronomic/theme-core/src"]);
 });
 
 test("fonts: each face self-hosted with swap, the files and the license beside them", () => {

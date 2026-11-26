@@ -48,10 +48,10 @@ export async function runNoEmdash(config) {
 	const rel = (file) => relative(cwd, file);
 	let failed = false;
 
-	/** Resolve a workspace package import (`@astronomic/*`) to a file, or undefined. */
+	/** Resolve a workspace package import (`@astronomic/*`, `@astronomic-dev/*`) to a file, or undefined. */
 	const require = createRequire(join(cwd, "package.json"));
 	function resolvePackage(spec) {
-		if (!spec.startsWith("@astronomic/")) return undefined;
+		if (!spec.startsWith("@astronomic/") && !spec.startsWith("@astronomic-dev/")) return undefined;
 		try {
 			return require.resolve(spec);
 		} catch {

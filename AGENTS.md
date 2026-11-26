@@ -15,8 +15,8 @@ Use pnpm. Node version: `.nvmrc`.
 ```sh
 pnpm install
 pnpm dev             # dev server at http://localhost:4321 (Markdown source)
-pnpm build           # Markdown: a static site in dist/ (then Pagefind indexes it)
-pnpm preview         # serve the build (site search works here, not in dev)
+pnpm build           # Markdown: a static site in dist/ with the search index in dist/_search/
+pnpm preview         # serve the build (Markdown: site search works here; it is empty in dev)
 pnpm check           # astro check: type-check
 pnpm seed:emdash     # EmDash: load the schema, SEO values and demo images into ./data.db (--reset starts over)
 pnpm start           # EmDash: run the server build (node ./dist/server/entry.mjs)
@@ -37,8 +37,9 @@ Most of the layout you can read from the project. These are the parts that are e
 | `content/site.json` | Your profile and settings in the Markdown source: name, role, avatar, socials, Now line, newsletter form, `cvFile`, `sampleContent`. The look is in `src/theme.config.ts` |
 | `seed/` | EmDash's schema and demo content, used by `pnpm seed:emdash`. It shares only the images in `content/media/` with `content/`: a text change in one does not reach the other |
 | `src/theme.strings.ts` | Every word the theme writes itself |
+| `src/search/` | Site search, one folder per kind of build (`static`: Markdown, `emdash`, `request`: any other server source). `src/search/setup.mjs` picks the folder, and pages import its parts as `astronomic:search/*` |
 
-`packages/ui`, `packages/content` and `packages/theme-core` are part of this repo. You may change them, but prefer changes in the theme's own files.
+`packages/ui`, `packages/content` and `packages/theme-core` are part of this repo. You may change them, but prefer changes in the theme's own files. Site search is the npm package `@astronomic-dev/search`; its docs are at https://astronomic.dev/docs/search.
 
 ## Content: Markdown or EmDash
 
@@ -47,6 +48,14 @@ Most of the layout you can read from the project. These are the parts that are e
 - To add a field, change `src/content/model.ts` first, then map it in every source in `src/content/sources/`, then run `pnpm test:adapter` and `pnpm test:parity`.
 
 Set the public URL with `SITE_URL` (or the `site` line in `astro.config.mjs`) before a real build. The feed, sitemap, robots.txt, share images and the newsletter form's hidden links use it. On EmDash, set it when the server runs too (`SITE_URL=https://<your-domain> pnpm start`): without it, links use the address the server sees for each request (`http://localhost:<port>` unless `security.allowedDomains` names the domain) and the log has one line.
+
+## Search
+
+- **Opens from** the footer's Search link, the form on `/articles`, mod+K and `/`. The footer link also loads the dialog in a Markdown build, so keep it on every page. `/search` is the results page; keep it working with JavaScript off.
+- **Markdown.** The build reads the built pages into `dist/_search/`. `src/search/static/integration.mjs` sets which pages. Draft and `noindex` entries and pages that are off are left out.
+- **EmDash.** `src/content/sources/emdash.setup.mjs` sets up the search plugin (there is nothing to install), with the options `searchPluginOptions` in `src/content/search-scope.ts` makes from `src/theme.config.ts`. They must be plain JSON. To search a collection you add, add it to `SEARCH_COLLECTIONS` and `SEARCH_ROUTES` there and to `searched` in `src/content/sources/emdash.ts`. `HIT_LIST_FIELDS` there names the talk and uses fields that find `/speaking` and `/uses`, and `KEYWORD_TAXONOMIES` the taxonomies that find a post. The rest of the settings are on the admin's **Search** page. A change to the options reaches the index at the next content change, at the nightly build or with **Rebuild now** there, after a deploy.
+- **EmDash limit.** The dialog finds `/speaking` and `/uses` by their `pages` entries, not by each talk's or item's title.
+- **EmDash on Cloudflare** (not set up here) needs Workers Paid, EmDash's Worker entry and a Cron Trigger: https://astronomic.dev/docs/search/install-emdash#cloudflare.
 
 ## Settings, looks and colors
 

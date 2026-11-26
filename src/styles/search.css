@@ -1,0 +1,67 @@
+/*
+ * The search dialog, its phone stand-in box and (EmDash) the results page, in Vesper's tokens: the one place that maps
+ * the search package's --search-* properties. The values are tokens a look, an accent and a mode already set, so every
+ * look, accent and mode follows with no rule here. `pnpm test:skins` checks every text pair (4.5:1) in all of them, and
+ * a unit test that no color the package reads is left out.
+ *
+ * The dialog is a sheet like the phone menu: the surface, the card corners, the scrim. Its width keeps the package's
+ * default (--search-width, 40rem).
+ */
+:root {
+  --search-font: var(--ui-font-body);
+  --search-bg: var(--ui-surface); --search-fg: var(--ui-fg); --search-muted: var(--ui-muted);
+  --search-border: var(--v-border-2); --search-line: var(--ui-border);
+  /* The box's edge: the edge of the theme's text fields (3:1). The package has one border for it and for hairlines. */
+  --v-search-edge: var(--ui-border-control);
+  --search-accent: var(--ui-accent); --search-accent-fg: var(--ui-accent-fg); --search-focus: var(--ui-accent);
+  /* Matched words: the ink on the accent at 22%. */
+  --search-mark-bg: color-mix(in srgb, var(--ui-accent) 22%, var(--ui-surface)); --search-mark-fg: var(--ui-fg);
+  --search-radius: var(--ui-radius-card);
+  --search-shadow: var(--v-nav-shadow), 0 0 0 1px var(--v-border-2);
+  --search-backdrop: color-mix(in srgb, var(--ui-scrim) 50%, transparent);
+  /* The results page, on the page's own ground: the lines, the band behind a group's heading, a picked tab. */
+  --search-rule: var(--ui-border); --search-band: var(--ui-surface); --search-selected: var(--ui-accent-soft);
+}
+
+/*
+ * Light or dark (scrollbars, the caret): as the page, which follows the reader's system until the switch sets
+ * data-theme on <html>. Left alone, the package follows the system, or its own `theme` attribute. A page's rule on the
+ * element wins over the ones in its shadow root, so this needs no script, and holds for a dialog made later and while
+ * one is open.
+ */
+astronomic-search,
+[data-search-proxy] {
+  color-scheme: inherit;
+}
+
+/* The box's edge, in the stand-in too (which has no part for its box: its border is the box's, its bottom line stays). */
+astronomic-search::part(input) {
+  border-color: var(--v-search-edge);
+}
+astronomic-search::part(input):focus-visible {
+  border-color: var(--search-focus);
+}
+[data-search-proxy] {
+  --search-border: var(--v-search-edge);
+}
+[data-search-proxy]::part(panel) {
+  border-bottom-color: var(--v-border-2);
+}
+
+/* The box and the close button in the corners of the theme's controls. */
+astronomic-search::part(input),
+astronomic-search::part(close) {
+  border-radius: var(--ui-radius-control);
+}
+
+/* The kinds (tabs, a result's kind) in the corners of the theme's tags, and a group's heading in the meta style. */
+astronomic-search::part(tab),
+astronomic-search::part(type-label) {
+  border-radius: var(--v-tag-radius);
+}
+astronomic-search::part(group-label) {
+  font-family: var(--v-font-meta);
+  font-size: max(var(--v-meta-size), 0.8125rem);
+  letter-spacing: var(--v-meta-track);
+  text-transform: var(--v-meta-case);
+}

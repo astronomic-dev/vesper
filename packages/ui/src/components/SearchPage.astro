@@ -73,8 +73,8 @@ if (assets.strings.keys || own.keys) merged.keys = { ...assets.strings.keys, ...
 const strings = { ...mergeStrings(merged), ...pageStrings(merged) };
 const config = JSON.stringify({ manifest: assets.manifest, index: assets.index, keys: [], strings: merged, browse: assets.browse }).replace(/</g, "\\u003c");
 const typeList = Array.isArray(types) ? types.join(",") : types;
-const base = import.meta.env.BASE_URL;
-const action = `${base.endsWith("/") ? base : `${base}/`}search`;
+// The search page: /search under the base, with the site's trailingSlash setting (the integration works it out).
+const action = assets.searchPage;
 const id = uid("search-page");
 const Title = headingTag;
 
@@ -204,7 +204,7 @@ const link = cx("rounded-control text-fg no-underline hover:underline hover:deco
 </search>
 
 <script>
-	import { PAGE, readUrl } from "../lib/search-page";
+	import { PAGE } from "../lib/search-page";
 
 	// Until first use this only listens. With a query in the URL it loads the search at once, so the results show on
 	// load; else on hover, focus or typing in the form. It writes the URL's query into the box before that, so a slow
@@ -226,7 +226,8 @@ const link = cx("rounded-control text-fg no-underline hover:underline hover:deco
 			root.setAttribute("data-search-started", "");
 			const input = root.querySelector<HTMLInputElement>("[data-search-input]");
 			const form = root.querySelector("form");
-			const { query } = readUrl(location.search);
+			// The query only, as readUrl reads it (the kit keeps the default name "q"); readUrl itself waits for the app.
+			const query = new URLSearchParams(location.search.slice(1)).get("q")?.trim() ?? "";
 			if (input && query && !input.value) input.value = query;
 			if (!form) continue;
 			let loaded: Promise<void> | null = null;

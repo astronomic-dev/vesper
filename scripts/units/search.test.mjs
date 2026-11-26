@@ -1,7 +1,9 @@
 /** The shared search module (src/content/search.ts): collections, routes, hit summaries and limits, for every source. */
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { defaultStrings } from "@astronomic-dev/search/controller";
 import { keptHits, listPageHits, matchesText, ownListHit, SEARCH_COLLECTIONS, SEARCH_ROUTES, SEARCH_WINDOW, search, searchCollection, searchHref, searchSummary } from "../../src/content/search.ts";
+import { strings } from "../../src/theme.strings.ts";
 
 test("the searched collections and their EmDash names: posts, projects and pages; talks and uses are not records", () => {
 	assert.deepEqual(Object.keys(SEARCH_COLLECTIONS), ["posts", "projects", "pages"]);
@@ -112,4 +114,11 @@ test("keptHits: hits on a page that is off and hidden entries are left out befor
 	assert.ok(!loaded.some((href) => href.startsWith("/projects")), "a hit on a page that is off loads no entry");
 	assert.equal(loaded.length, 3 + search.fetch, "only the entries it needs: a first batch of 21 (three of them hidden), then three more");
 	assert.deepEqual(await keptHits([{ href: "/a" }], { on: () => true, keep: async () => undefined, max: 5 }), []);
+});
+
+test("the dialog's words: every one it can show is the theme's", () => {
+	// Words for what Vesper's dialog has none of: suggested links, filters, links in a new tab, a kind with no name.
+	const unused = ["facetsLabel", "newTab", "other", "suggested"];
+	assert.deepEqual(Object.keys(strings.search.dialog).sort(), Object.keys(defaultStrings).filter((key) => !unused.includes(key)).sort());
+	for (const group of ["results", "keys"]) assert.deepEqual(Object.keys(strings.search.dialog[group]), Object.keys(defaultStrings[group]), group);
 });

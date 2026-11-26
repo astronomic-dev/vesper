@@ -1,0 +1,9 @@
+---
+/** Any other server source: the search page's body, searched on the server only. */
+import type { ResultsProps } from "../types";
+import Hits from "./Hits.astro";
+
+type Props = ResultsProps;
+---
+
+<Hits {...Astro.props} head />

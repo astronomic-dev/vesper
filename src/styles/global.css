@@ -10,7 +10,7 @@
  *   6. Accents (accents/*.css): the accent's four values per data-accent (Glacier also with none).
  *   7. Photo frames: the collage band and the post thumbnails (collage.css); running text (prose.css); the page
  *      parts: the intro, post rows, side cards and the article's frame (pages.css); the smaller pages: projects,
- *      talks, uses, the Now and about pages (sections.css).
+ *      talks, uses, the Now and about pages (sections.css); the search dialog (search.css).
  *
  * src/theme.config.ts picks the look, the accent and the collage; the layout sets them on <html>.
  *
@@ -22,9 +22,9 @@
  */
 @layer astro.images, theme, base, components, utilities;
 @import "tailwindcss";
-@import "@astronomic/ui/tokens.css";
+@import "@astronomic-dev/ui/tokens.css";
 @import "./fonts.css";
-@import "@astronomic/ui/theme.css";
+@import "@astronomic-dev/ui/theme.css";
 @import "./vesper.css";
 /* Looks. Each sets its tokens under :root[data-look="<id>"]. */
 @import "./looks/clear.css";
@@ -39,8 +39,9 @@
 @import "./prose.css";
 @import "./pages.css";
 @import "./sections.css";
+@import "./search.css";
 
-/* Generate classes used by @astronomic/ui components (workspace symlink). */
-@source "../../node_modules/@astronomic/ui/src";
+/* Generate classes used by @astronomic-dev/ui components (workspace symlink). */
+@source "../../node_modules/@astronomic-dev/ui/src";
 /* And by @astronomic/theme-core parts (the search page, form and toggle, On this page). */
 @source "../../node_modules/@astronomic/theme-core/src";

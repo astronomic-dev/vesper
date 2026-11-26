@@ -35,7 +35,7 @@ markdownRenderers                                  // RichText for "markdown", I
 
 Use `markdownKit`. It passes the same `taxonomies` collection to every `md.collection(...)` (for `h.terms()`) and to `md.site` (for `taxonomies.list()`). If you call `markdownCollection` and `markdownSite` directly, their `taxonomies` options must match, or term labels and term pages disagree.
 
-`markdownCollection` maps every entry, then filters, sorts and pages in memory. `get(slug)` looks up the mapped `slug`, so a `map` that changes the slug keeps URLs working. Errors are not caught.
+`markdownCollection` maps every entry, then filters, sorts and pages in memory. `limit: 0` returns no entries, and `hasMore` says whether one exists at or past `offset`. `get(slug)` looks up the mapped `slug`, so a `map` that changes the slug keeps URLs working. Errors are not caught.
 
 In production the mapped list (and the taxonomy lookup) is built once and reused by every `list`, `get`, `slugs` and `count` call, so enumerating routes maps each file once per build. In `astro dev` nothing is cached, so file edits show up. Entries returned in production are shared: do not mutate them.
 

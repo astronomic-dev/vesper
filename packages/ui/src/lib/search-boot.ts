@@ -2,8 +2,9 @@
  * What the Search shell's eager script needs, and nothing else: the selectors, the shortcut keys read from a dialog's
  * config block, the key hint and the key that pairs a button with its dialog. It runs on every page with a search
  * button, so it imports nothing: with the package's boot (`@astronomic-dev/search/boot`) it is the whole eager script, one
- * small file with no shared chunk (decision 0015, principle 7). lib/search-app.ts imports the selectors and
- * triggerKey from here; lib/search.ts holds the rest of the pure helpers, for the lazy apps.
+ * small file with no shared chunk (decision 0015, principle 7). The lazy app imports nothing from here: it has its own
+ * copies of the selectors and triggerKey in lib/search.ts (a test keeps them the same), so this file carries no
+ * export for it.
  */
 
 /** The kit's search buttons. The package's own boot skips them (they carry a data-search-ui of their own). */
@@ -12,12 +13,12 @@ export const TRIGGER = '[data-search-trigger][data-search-ui="kit"]';
 export const DIALOG = "dialog[data-search-dialog]";
 
 /**
- * A dialog's config block, read leniently for the boot: the site's default index and this dialog's keys. Anything
- * missing or malformed reads as the default index and no keys; the lazy app's parseConfig (lib/search.ts) is the
+ * A dialog's config block, read leniently for the boot: the manifest URL, the site's default index and this dialog's
+ * keys. Anything missing or malformed reads as no manifest URL (""), the default index and no keys; the lazy app's parseConfig (lib/search.ts) is the
  * strict reader that reports a broken block.
  */
-export function bootConfig(text: string | null | undefined): { index: string; keys: string[] } {
-	let data: { index?: unknown; keys?: unknown } | null = null;
+export function bootConfig(text: string | null | undefined): { manifest: string; index: string; keys: string[] } {
+	let data: { manifest?: unknown; index?: unknown; keys?: unknown } | null = null;
 	try {
 		data = JSON.parse(text ?? "null");
 	} catch {
@@ -25,7 +26,8 @@ export function bootConfig(text: string | null | undefined): { index: string; ke
 	}
 	const index = typeof data?.index === "string" && data.index ? data.index : "default";
 	const keys = Array.isArray(data?.keys) ? data.keys.filter((k): k is string => typeof k === "string") : [];
-	return { index, keys };
+	const manifest = typeof data?.manifest === "string" ? data.manifest : "";
+	return { manifest, index, keys };
 }
 
 const APPLE: Record<string, string> = { mod: "⌘", meta: "⌘", ctrl: "⌃", alt: "⌥", shift: "⇧" };

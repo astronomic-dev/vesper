@@ -6,24 +6,28 @@
  * kit's script; none under reduced motion), and widens again at the top.
  *
  * In the bar: the brand (the cut avatar, the person's name and role; a link home), the `primary` menu's links (15px,
- * the body color; the current page in the text color and 600, with a 2px accent bar under it), and the light and
- * dark switch (the kit's ModeToggle). At 900px and below (the theme's --breakpoint-nav-md) the links and the switch
- * fold into the kit's MobileMenu: its links 48px tall, the switch under them as a full-width labeled button ("Switch
- * light and dark", comp ".menu-sheet .btn"). 44px tap targets.
+ * the body color; the current page in the text color and 600, with a 2px accent bar under it), the search button
+ * (while the site has a search; src/search/), and the light and dark switch (the kit's ModeToggle). At 900px and below
+ * (the theme's --breakpoint-nav-md) the links, the search and the switch fold into the kit's MobileMenu: its links 48px
+ * tall, the other two under them as full-width labeled buttons ("Switch light and dark", comp ".menu-sheet .btn").
+ * 44px tap targets.
  *
- * The actions slot is rendered twice, in the bar and in the menu, so it holds both switches: the icon (ModeToggle) and
- * the labeled button (data-mode-label; data-mode-toggle, so the kit's script binds it and keeps its aria-pressed).
- * v-site (vesper.css) shows the labeled one only in the menu and hides the icon there.
+ * The actions slot is rendered twice, in the bar and in the menu, so it holds both of each: the icons (data-nav-search,
+ * ModeToggle) and the labeled buttons (data-nav-search; data-mode-label, with data-mode-toggle, so the kit's script
+ * binds it and keeps its aria-pressed). v-site (vesper.css) shows the labeled ones only in the menu and hides the icons
+ * there.
  */
-import ModeToggle from "@astronomic/ui/components/ModeToggle.astro";
-import Navbar from "@astronomic/ui/components/Navbar.astro";
-import { buttonClasses, touchBox } from "@astronomic/ui/lib/button.ts";
-import type { NavLink } from "@astronomic/ui/lib/nav.ts";
+import ModeToggle from "@astronomic-dev/ui/components/ModeToggle.astro";
+import Navbar from "@astronomic-dev/ui/components/Navbar.astro";
+import { buttonClasses, touchBox } from "@astronomic-dev/ui/lib/button.ts";
+import SearchTrigger from "astronomic:search/Trigger.astro";
+import type { NavLink } from "@astronomic-dev/ui/lib/nav.ts";
 import type { ContentImage as Image } from "~/content";
 import { strings } from "~/theme.strings";
 import { cn } from "~/utils/cn";
 import { homeHref } from "~/utils/routes";
 import Avatar from "./Avatar.astro";
+import Icon from "./Icon.astro";
 
 interface Props {
 	links: NavLink[];
@@ -33,9 +37,11 @@ interface Props {
 	avatar?: Image;
 	/** True on the home page: the brand link is then the current page. */
 	home?: boolean;
+	/** The search page (none on a site with no search), and whether it is the current page. */
+	search?: { href: string; current: boolean };
 }
 
-const { links, name, role, avatar, home = false } = Astro.props;
+const { links, name, role, avatar, home = false, search } = Astro.props;
 const t = strings.site;
 ---
 
@@ -58,7 +64,61 @@ const t = strings.site;
 		</span>
 	</a>
 	<Fragment slot="actions">
+		{
+			search && (
+				<SearchTrigger {...search} data-nav-search="icon" aria-label={t.search} class={cn(buttonClasses({ variant: "ghost", size: "sm", icon: true, tone: "band" }), "tap-area")}>
+					<Icon name="ui/search" class="size-4.5" />
+				</SearchTrigger>
+			)
+		}
 		<ModeToggle tone="band" label={t.darkMode} />
+		{
+			search && (
+				<SearchTrigger {...search} data-nav-search="label" class={cn(buttonClasses({ variant: "secondary" }), "w-full")}>
+					<Icon name="ui/search" class="size-4.5" />
+					{t.search}
+				</SearchTrigger>
+			)
+		}
 		<button type="button" data-mode-toggle data-mode-label aria-pressed="false" class={`${buttonClasses({ variant: "secondary" })} w-full noscript:hidden`}>{t.modeSwitch}</button>
 	</Fragment>
 </Navbar>
+
+<script>
+	// The phone menu's search button, where the press opens a dialog (a press that search took is prevented; a plain link
+	// to the search page is left alone). The menu stays open under the press: the dialog's stand-in box is inside it while
+	// the dialog loads. Once the search dialog has focus the menu closes, and the search gives focus back to the button
+	// that opens the menu, as its own button no longer shows.
+	const MENU = "dialog[data-mobile-menu]";
+	const BUTTON = `${MENU} [data-nav-search="label"]`;
+
+	function setup(button: HTMLElement) {
+		if (button.dataset.bound) return;
+		button.dataset.bound = "true";
+		const menu = button.closest<HTMLDialogElement>(MENU)!;
+		// The kit's script closes the menu on a link's click that reaches the document.
+		button.parentElement!.addEventListener("click", (event) => {
+			if (event.defaultPrevented && button.contains(event.target as Node)) event.stopPropagation();
+		});
+		// A press held while search loads, replayed after the menu was closed: called off.
+		button.parentElement!.addEventListener("click", (event) => {
+			if (menu.open || !button.contains(event.target as Node)) return;
+			event.preventDefault();
+			event.stopPropagation();
+		}, true);
+		button.focus = (options) => {
+			const back = menu.open ? button : document.querySelector<HTMLElement>(`[aria-controls="${CSS.escape(menu.id)}"]`);
+			if (back) HTMLElement.prototype.focus.call(back, options);
+		};
+	}
+	/** On load, and after a ClientRouter swap (this script runs once). */
+	const start = () => document.querySelectorAll<HTMLElement>(BUTTON).forEach(setup);
+	start();
+	document.addEventListener("astro:page-load", start);
+	const close = () => document.querySelector<HTMLDialogElement>(`${MENU}[open]`)?.close();
+	// Search that could not load goes to its page: the menu is not open on the way back.
+	window.addEventListener("pagehide", close);
+	document.addEventListener("focusin", (event) => {
+		if ((event.target as Element).localName === "astronomic-search") close();
+	});
+</script>

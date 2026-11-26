@@ -10,17 +10,16 @@ import { bodyText, readingTime } from "@astronomic/theme-core/content";
 import { updatedAfter } from "@astronomic/theme-core/date";
 import { blogPostingNode } from "@astronomic/theme-core/jsonld";
 import { slugParams } from "@astronomic/theme-core/routes";
-import SeriesList from "@astronomic/ui/components/SeriesList.astro";
-import { formatDate } from "@astronomic/ui/lib/date.ts";
-import { plainHeading } from "@astronomic/ui/lib/emphasis.ts";
+import SeriesList from "@astronomic-dev/ui/components/SeriesList.astro";
+import { formatDate } from "@astronomic-dev/ui/lib/date.ts";
+import { plainHeading } from "@astronomic-dev/ui/lib/emphasis.ts";
 import ArticleBody from "~/components/ArticleBody.astro";
 import ArticleHead from "~/components/ArticleHead.astro";
 import AuthorCard from "~/components/AuthorCard.astro";
 import PrevNext from "~/components/PrevNext.astro";
 import RichText from "~/components/RichText.astro";
-import { searchIgnore, useContent } from "~/content";
+import { useContent } from "~/content";
 import { seriesParts } from "~/content/rules";
-import { searchSummary } from "~/content/search";
 import Base from "~/layouts/Base.astro";
 import { strings } from "~/theme.strings";
 import { neighbors } from "~/utils/articles";
@@ -41,7 +40,6 @@ if (!post) {
 }
 const [settings, { items: all }, about] = await Promise.all([siteSettings(content), content.posts.list(), content.pages.get("about")]);
 const t = strings.article;
-const ignore = searchIgnore(content);
 const minutes = readingTime(bodyText(post.body));
 const { previous, next } = neighbors(all, post.slug);
 const link = (p?: { slug: string; title: string }) => (p ? { href: postHref(p.slug), title: p.title } : undefined);
@@ -70,7 +68,8 @@ const jsonLd = blogPostingNode(siteOrigin(Astro), {
 	imageAlt={post.seo?.image ? undefined : post.thumbnail?.alt}
 	canonical={post.seo?.canonical}
 	entry={post}
-	index={{ kind: "posts", title: post.title, summary: searchSummary("posts", post) }}
+	searchable
+	keywords={[post.category, ...post.tags].flatMap((term) => term?.label ?? [])}
 	type="article"
 	card
 	jsonLd={jsonLd}
@@ -89,7 +88,7 @@ const jsonLd = blogPostingNode(siteOrigin(Astro), {
 		/>
 		<ArticleBody>
 			<RichText value={post.body} />
-			<footer slot="foot" class="v-art-foot" {...ignore}>
+			<footer slot="foot" class="v-art-foot" data-search-ignore>
 				{
 					post.series && parts.length > 1 && (
 						<SeriesList title={post.series.label} label={t.series} parts={parts} positionText={t.seriesPosition} class="v-series" />

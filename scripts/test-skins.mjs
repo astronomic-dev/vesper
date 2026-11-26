@@ -10,12 +10,13 @@
  *   - contrast, for each accent in Clear, Field notes and Trail map, light and dark: the accent as text on the ground,
  *     the cards, the second surface and the Now chip's tint (4.5:1); the button's text on the accent, at rest and on
  *     hover (4.5:1); the focus ring on every surface and on the look's photo paper (3:1)
+ *   - the same for the search dialog and the results page (src/styles/search.css): every text on every ground (4.5:1)
  *
  * Prints each value, then OK or FAIL with the problems. Lodestar's runner is the model (Lodestar has six values per
  * accent; Vesper has four, and its grounds come from three looks).
  */
 import { readFileSync } from "node:fs";
-import { accentFileProblems, readAccents, skinChecks } from "./lib/skins.mjs";
+import { accentFileProblems, readAccents, searchChecks, skinChecks } from "./lib/skins.mjs";
 
 const at = (path) => new URL(`../${path}`, import.meta.url);
 const KNOWN = /export const ACCENTS = \[([^\]]*)\]/.exec(readFileSync(at("src/utils/config.ts"), "utf8"))?.[1].match(/"([^"]+)"/g)?.map((s) => s.slice(1, -1)) ?? [];
@@ -27,7 +28,7 @@ else if (!ids.includes(chosen[1])) problems.push(`src/theme.config.ts: accent "$
 
 let checks = 0;
 if (!problems.length) {
-	for (const { name, value, min } of skinChecks()) {
+	for (const { name, value, min } of [...skinChecks(), ...searchChecks()]) {
 		checks++;
 		if (!(value >= min)) problems.push(`${name} is ${value.toFixed(2)}, needs ${min}`);
 		else console.log(`${name} ${value.toFixed(2)}`);

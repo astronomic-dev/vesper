@@ -1,0 +1,142 @@
+---
+/**
+ * Static builds: the search page's body. The <h1> and the form come first, outside any live region. The script reads
+ * `?q=`, loads the Astronomic Search index and lists the matching pages. Until it has, with JavaScript off, and when
+ * the index cannot load, the page shows links to browse instead, with a note. `astro dev` has no index (nothing is
+ * built), so it says so.
+ */
+import SearchForm from "@astronomic/theme-core/components/SearchForm.astro";
+import { search } from "~/content/search";
+import { strings } from "~/theme.strings";
+import { cn } from "~/utils/cn";
+import { hoverUnderline } from "~/utils/layout";
+import { articlesHref, homeHref, searchHref } from "~/utils/routes";
+import type { ResultsProps } from "../types";
+
+type Props = ResultsProps;
+const { siteTitle } = Astro.props;
+const t = strings.search;
+// titleFor: the browser's title once the query is known, worded as Base words the page title.
+const text = { loading: t.loading, failed: t.failed, devOnly: t.devOnly, count: t.count, kinds: t.kinds, titleFor: `${t.titleFor} — ${siteTitle}` };
+const [noneBefore, noneAfter] = t.noneFor.split("{q}");
+const link = cn("font-semibold text-accent", hoverUnderline);
+---
+
+<div data-search-page data-mode="static" data-state="empty" data-text={JSON.stringify(text)} data-limit={search.limit} class="grid gap-8">
+	<header class="v-page-head">
+		<h1 class="m-0 v-display text-v-page">{t.title}</h1>
+		<p data-head-lead data-count-text aria-live="polite" class="m-0 max-w-lead text-v-lead text-v-body text-pretty">{t.intro}</p>
+		<SearchForm variant="row" action={searchHref()} strings={t.form} class="mt-10" />
+	</header>
+	<p data-search-status role="status" hidden class="m-0 text-v-body"></p>
+	<div data-search-browse class="grid gap-3 text-v-body">
+		<p data-search-prompt class="m-0 noscript:hidden">{t.empty}</p>
+		<noscript><p data-search-noscript class="m-0">{t.noScript}</p></noscript>
+		<ul role="list" class="m-0 flex list-none flex-wrap gap-x-8 gap-y-3 p-0">
+			<li><a href={articlesHref()} class={link}>{t.articles}</a></li>
+			<li><a href={homeHref()} class={link}>{t.home}</a></li>
+		</ul>
+	</div>
+	{/* Its own live region (always rendered), so "no results" is announced when the block shows. */}
+	<div aria-live="polite" class="empty:hidden">
+		<div data-search-none hidden class="grid gap-4 text-v-body">
+			<p class="m-0 v-heading text-v-lead text-fg wrap-anywhere">{noneBefore}<span data-search-words></span>{noneAfter}</p>
+			<p class="m-0">{t.tipsHeading}</p>
+			<ul class="m-0 grid list-disc gap-1 pl-5 marker:text-muted">
+				{t.tips.map((tip) => <li>{tip}</li>)}
+			</ul>
+			<p class="m-0"><a href={articlesHref()} class={link}>{t.articles}</a></p>
+		</div>
+	</div>
+	<ul data-search-page-list role="list" class="v-posts mt-2" hidden></ul>
+	<template data-search-hit>
+		<li class="v-post">
+			<div class="min-w-0">
+				<p data-post-meta data-hit="kind" class="v-meta"></p>
+				<h2 data-post-title class="v-heading"><a data-hit="href" href="/"></a></h2>
+				<p data-post-summary data-hit="excerpt"></p>
+			</div>
+		</li>
+	</template>
+</div>
+
+<script>
+	import assets from "virtual:astronomic-search/assets";
+	import { loadSearcher } from "@astronomic-dev/search/controller";
+	import { createSearch, minisearchEngine } from "@astronomic-dev/search/core";
+	import { isSafeUrl } from "@astronomic-dev/search/dom";
+	import type { strings } from "~/theme.strings";
+
+	type Text = Pick<(typeof strings)["search"], "loading" | "failed" | "devOnly" | "count" | "kinds" | "titleFor">;
+
+	const fill = (line: string, values: Record<string, string | number>) => line.replace(/\{(\w+)\}/g, (all, key) => String(values[key] ?? all));
+
+	async function run(root: HTMLElement, q: string) {
+		const $ = <T extends HTMLElement = HTMLElement>(name: string) => root.querySelector<T>(`[data-${name}]`)!;
+		const text: Text = JSON.parse(root.dataset.text!);
+		const limit = Number(root.dataset.limit);
+		const list = $("search-page-list");
+		const status = $("search-status");
+		/** What each state shows: `browse` is the links, with the note in `status` when search failed. */
+		const show = (state: "loading" | "failed" | "none" | "results", note = "") => {
+			root.dataset.state = state;
+			status.textContent = note;
+			status.hidden = !note;
+			$("search-browse").hidden = state !== "failed";
+			$("search-prompt").hidden = true;
+			$("search-none").hidden = state !== "none";
+			list.hidden = state !== "results";
+		};
+
+		document.title = fill(text.titleFor, { q });
+		$("search-words").textContent = q;
+		for (const input of root.querySelectorAll<HTMLInputElement>('input[name="q"]')) input.value = q;
+		show("loading", text.loading);
+		try {
+			if (import.meta.env.DEV) return show("failed", text.devOnly);
+			const searcher = await loadSearcher({
+				index: assets.index,
+				lang: document.documentElement.lang,
+				manifestUrl: assets.manifest,
+				fetch: (url, init) => fetch(url, init),
+				engine: minisearchEngine,
+				createSearch,
+			});
+			// Pages only, best first, in one list.
+			const found = searcher.run({ q, group: false, headingsPerPage: 0, linked: true }).groups.flatMap((group) => group.items).filter(({ page }) => isSafeUrl(page.url!));
+			if (!found.length) return show("none");
+			const hits = found.slice(0, limit);
+			list.replaceChildren(
+				...hits.map(({ page, highlight }) => {
+					const item = $<HTMLTemplateElement>("search-hit").content.cloneNode(true) as DocumentFragment;
+					const set = (name: string, value: string | undefined) => {
+						const el = item.querySelector(`[data-hit="${name}"]`)!;
+						if (value) el.textContent = value;
+						else el.remove();
+					};
+					item.querySelector<HTMLAnchorElement>('[data-hit="href"]')!.href = page.url!;
+					set("href", page.title);
+					set("kind", text.kinds[page.type]);
+					set("excerpt", highlight.snippet.text);
+					return item;
+				}),
+			);
+			const count = found.length > limit ? text.count.more : hits.length === 1 ? text.count.one : text.count.many;
+			$("count-text").textContent = fill(count, { n: hits.length, q });
+			show("results");
+		} catch {
+			show("failed", text.failed);
+		}
+	}
+
+	/** Each page's root once: on load, and after a ClientRouter swap (this script runs once). */
+	function start() {
+		const root = document.querySelector<HTMLElement>("[data-search-page]");
+		const q = new URLSearchParams(location.search).get("q")?.trim();
+		if (!root || root.dataset.bound) return;
+		root.dataset.bound = "true";
+		if (q) void run(root, q);
+	}
+	start();
+	document.addEventListener("astro:page-load", start);
+</script>

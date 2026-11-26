@@ -1,5 +1,6 @@
 /**
- * The site search's shared parts, for every source that builds its own hits (EmDash now, a mixed source later):
+ * The site search's shared parts, for every source that builds its own hits (EmDash now: the list /search shows
+ * before or without the plugin's results; a mixed source later):
  * which collections are searched, their routes, the one-line summary a hit shows, and the limits. Source-free: no
  * CMS import, so a later mixed source reuses it for its own simple search.
  *
@@ -12,7 +13,8 @@
  * when its title, its lead or a talk matches, and one for /uses the same way (after the source's own hits). The
  * pages collection's `projects`, `speaking` and `uses` entries only word those list pages (src/utils/sections.ts
  * `listHead`), so they are never hits of their own (`ownListHit`): /projects is not indexed in a static build, and
- * /speaking and /uses take the entry's title and lead in `listPageHits`.
+ * /speaking and /uses take the entry's title and lead in `listPageHits`. The EmDash plugin's index follows the same
+ * rules (`listPages` in search-scope.ts).
  *
  * Each summary is cut at about 160 characters, and is never the title again. The search page shows 20 hits; a
  * source returns up to `search.fetch` (21), so the page knows whether more matched than it shows. A source that
@@ -22,9 +24,12 @@
 import type { RichText, SearchHit } from "@astronomic/content";
 import { firstParagraph, searchLimits, trimSummary } from "@astronomic/theme-core/content";
 import { strings } from "../theme.strings";
-import { pageHref, postHref, projectHref, speakingHref, usesHref } from "../utils/routes";
+import { OPTIONAL_ROUTES } from "../utils/routes";
 import { isListPage, listHead } from "../utils/sections";
 import type { Page, Talk, UsesItem } from "./model";
+import { HIT_LIST_FIELDS, HIT_LIST_PAGES, type HitListPage, SEARCH_COLLECTIONS, SEARCH_ROUTES, type SearchCollection } from "./search-scope";
+
+export { SEARCH_COLLECTIONS, SEARCH_ROUTES, type SearchCollection };
 
 export const search = searchLimits(20);
 
@@ -54,22 +59,6 @@ export async function keptHits<H extends { href: string }>(
 	}
 	return kept;
 }
-
-/** The searched model collections, in hit order, with each one's EmDash collection slug. */
-export const SEARCH_COLLECTIONS = {
-	posts: "posts",
-	projects: "projects",
-	pages: "pages",
-} as const;
-
-export type SearchCollection = keyof typeof SEARCH_COLLECTIONS;
-
-/** Each searched collection's entry route (src/utils/routes.ts). */
-export const SEARCH_ROUTES: Record<SearchCollection, (slug: string) => string> = {
-	posts: postHref,
-	projects: projectHref,
-	pages: pageHref,
-};
 
 /** The model name for a collection named either way (the model's or EmDash's), or undefined. */
 export function searchCollection(name: string): SearchCollection | undefined {
@@ -128,11 +117,11 @@ export function listPageHits(
 	q: string,
 	{ talks, uses, pages = {} }: { talks: readonly Talk[]; uses: readonly UsesItem[]; pages?: { speaking?: ListEntry; uses?: ListEntry } },
 ): SearchHit[] {
-	const list = [
-		{ slug: "speaking", href: speakingHref(), entry: pages.speaking, head: listHead(pages.speaking, strings.speaking), text: talks.flatMap((x) => [x.title, x.event, x.place, x.summary]) },
-		{ slug: "uses", href: usesHref(), entry: pages.uses, head: listHead(pages.uses, strings.uses), text: uses.flatMap((x) => [x.group, x.name, x.note]) },
-	];
-	return list
+	const text: Record<HitListPage, (string | undefined)[]> = {
+		speaking: talks.flatMap((x) => HIT_LIST_FIELDS.speaking.fields.map((f) => x[f])),
+		uses: uses.flatMap((x) => HIT_LIST_FIELDS.uses.fields.map((f) => x[f])),
+	};
+	return HIT_LIST_PAGES.map((slug) => ({ slug, href: OPTIONAL_ROUTES[slug], entry: pages[slug], head: listHead(pages[slug], strings[slug]), text: text[slug] }))
 		.filter((p) => !p.entry?.seo?.noindex)
 		.filter((p) => matchesText(q, [p.head.title, p.head.lead, ...p.text].filter(Boolean).join(" ")))
 		.map((p) => ({ collection: "pages", slug: p.slug, title: p.head.title, href: p.href, excerpt: p.head.lead ? trimSummary(p.head.lead) : undefined }));

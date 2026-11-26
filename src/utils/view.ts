@@ -4,7 +4,7 @@
  *
  * Plain Node loads this file (scripts/units/view.test.mjs): type imports, the rules and src/utils only.
  */
-import type { UiImage } from "@astronomic/ui/lib/image.ts";
+import type { UiImage } from "@astronomic-dev/ui/lib/image.ts";
 import type { ContentImage } from "@astronomic/content";
 import type { CollagePhoto, Job, Post, Project, Talk, UsesItem } from "../content/model";
 import { groupUses, jobYears } from "../content/rules";

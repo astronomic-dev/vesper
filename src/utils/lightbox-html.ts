@@ -24,7 +24,7 @@
  *
  * Pure: no Astro, so plain Node tests it (scripts/units/lightbox-html.test.mjs).
  */
-import { lightboxAttrs } from "@astronomic/ui/lib/lightbox.ts";
+import { lightboxAttrs } from "@astronomic-dev/ui/lib/lightbox.ts";
 import { type DefaultTreeAdapterMap, parseFragment } from "parse5";
 import { safeImageUrl } from "./lightbox-image.ts";
 

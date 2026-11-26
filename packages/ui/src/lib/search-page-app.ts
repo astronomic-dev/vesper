@@ -18,7 +18,7 @@ import { countText, createController, fill, loadSearcher, type Controller, type 
 import { createSearch, minisearchEngine, type GroupBy, type IndexSettings, type ResultItem, type SearchRecord } from "@astronomic-dev/search/core";
 import { bindEvents, bindLive, bindTabs, isSafeUrl, marked } from "@astronomic-dev/search/dom";
 import { CONFIG, cloneTemplate, crumbOf, fillCrumb, groupCount, markAttrs, ownValue, parseConfig, suggestedLinks, type SearchConfig } from "./search";
-import { PAGE_SIZE, pageStrings, pickToggles, readUrl, slicePages, writeUrl, type PageWords, type Slice } from "./search-page";
+import { PAGE_SIZE, pageStrings, pickToggles, readUrl, slicePages, writeUrl, type PageWords, type Slice, type UrlState } from "./search-page";
 
 interface Page {
 	root: HTMLElement;
@@ -88,7 +88,8 @@ const typesOf = (root: Element) =>
 		.map((t) => t.trim())
 		.filter(Boolean);
 
-const urlState = (s: State) => ({ query: s.query, type: s.type, picks: s.picks });
+// The kit reads the index from the part, never the URL (decision 0024), so the URL state names none.
+const urlState = (s: State): UrlState => ({ query: s.query, type: s.type, index: null, picks: s.picks });
 const facetNames = (p: Page) => Object.keys(p.settings?.facets ?? {});
 const typeLabel = (p: Page, type: string) => ownValue(p.settings?.types, type)?.label ?? type;
 const here = (search: string) => `${location.pathname}${search}${location.hash}`;

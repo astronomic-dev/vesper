@@ -5,10 +5,11 @@
  * which hear a comma), the title (h1), the summary as the lead, the tags; then the photo (the post's thumbnail) at the container's width, 21:9 (4:3 up to
  * 900px), with its top-end corner cut at 1.6 times the look's cut: the kit's Media with `shape="cut"` and the
  * theme's image component, so both sources keep their srcset. The photo opens large in the page's lightbox
- * (PhotoLink, which carries the box class v-art-fig). No photo: the head alone.
+ * (PhotoLink, which carries the box class v-art-fig). No photo: the head alone. Search reads the title and the lead
+ * only (data-search-ignore); the category and the tags are its keywords (Base `keywords`).
  */
-import Media from "@astronomic/ui/components/Media.astro";
-import { formatDate, isoDate } from "@astronomic/ui/lib/date.ts";
+import Media from "@astronomic-dev/ui/components/Media.astro";
+import { formatDate, isoDate } from "@astronomic-dev/ui/lib/date.ts";
 import type { ContentImage } from "~/content";
 import { strings } from "~/theme.strings";
 import { imageSizes } from "~/utils/layout";
@@ -39,14 +40,14 @@ const dateText = date ? formatDate(date, strings.locale, { dateStyle: "long" }) 
 ---
 
 <header>
-	<a href={articlesHref()} data-art-back class="v-back">
+	<a href={articlesHref()} data-art-back class="v-back" data-search-ignore>
 		<Icon name="ui/arrow-left" />
 		{t.back}
 	</a>
 	<div data-art-top>
 		{
 			(category || date || minutes) && (
-				<p data-art-meta class="v-meta">
+				<p data-art-meta class="v-meta" data-search-ignore>
 					{category && (
 						<a href={category.href} data-art-cat class="v-cat">
 							{category.label}

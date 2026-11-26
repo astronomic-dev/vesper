@@ -6,17 +6,21 @@
  * "© year name." and the sample-content note while `sampleContent` is on, and "Built with Astronomic" with the
  * four-point star (`builtWith` in src/theme.config.ts) at the end. Up to 600px everything stacks on the start edge.
  */
-import Footer from "@astronomic/ui/components/Footer.astro";
-import { touchBox } from "@astronomic/ui/lib/button.ts";
-import { relFor, type NavLink } from "@astronomic/ui/lib/nav.ts";
+import Footer from "@astronomic-dev/ui/components/Footer.astro";
+import { touchBox } from "@astronomic-dev/ui/lib/button.ts";
+import { relFor, type NavLink } from "@astronomic-dev/ui/lib/nav.ts";
+import SearchTrigger from "astronomic:search/Trigger.astro";
 import { strings } from "~/theme.strings";
 import { cn } from "~/utils/cn";
 import { sectionSpace, wrap } from "~/utils/layout";
 import SocialLinks, { type SocialLinkItem } from "./SocialLinks.astro";
 
+/** `search` marks the search page's link: it opens the search dialog where the build has one (src/search/). */
+export type FooterLink = NavLink & { search?: boolean };
+
 interface Props {
 	/** The `footer` menu's links, then the search and design system links. */
-	links: NavLink[];
+	links: FooterLink[];
 	socials: SocialLinkItem[];
 	/** The name in the copyright line. */
 	name: string;
@@ -42,9 +46,15 @@ const link = "inline-flex min-h-11 items-center rounded-control px-2.5 text-v-na
 				<ul role="list" class="-ms-2.5 my-0 flex list-none flex-wrap gap-x-1 p-0">
 					{links.map((item) => (
 						<li>
-							<a href={item.href} target={item.target} rel={relFor(item.target)} aria-current={item.current ? "page" : undefined} class={link}>
-								{item.label}
-							</a>
+							{item.search ? (
+								<SearchTrigger main href={item.href} current={item.current} class={link}>
+									{item.label}
+								</SearchTrigger>
+							) : (
+								<a href={item.href} target={item.target} rel={relFor(item.target)} aria-current={item.current ? "page" : undefined} class={link}>
+									{item.label}
+								</a>
+							)}
 						</li>
 					))}
 				</ul>

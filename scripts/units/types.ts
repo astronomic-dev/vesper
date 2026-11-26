@@ -1,7 +1,7 @@
 /**
  * Type tests, checked by `pnpm check` (tsconfig.json includes this file): what the model lets a page and a source do.
  */
-import type { HiddenField, Honeypot } from "@astronomic/ui/components/Form.astro";
+import type { HiddenField, Honeypot } from "@astronomic-dev/ui/components/Form.astro";
 import type { NewsletterOptions, PostQuery, ProjectQuery, Settings } from "../../src/content/model.ts";
 
 // The post query knows its keys.

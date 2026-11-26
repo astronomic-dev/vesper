@@ -144,8 +144,8 @@ const strings = { ...mergeStrings(input), ...dialogWords(input) };
 const keys = shortcut === false || !assets.shortcut ? [] : assets.shortcut.keys;
 const config = JSON.stringify({ manifest: assets.manifest, index: assets.index, keys, strings: input, browse: assets.browse }).replace(/</g, "\\u003c");
 const typeList = Array.isArray(types) ? types.join(",") : types;
-const base = import.meta.env.BASE_URL;
-const searchPage = `${base.endsWith("/") ? base : `${base}/`}search`;
+// The search page: /search under the base, with the site's trailingSlash setting (the integration works it out).
+const searchPage = assets.searchPage;
 const preview = Astro.slots.has("preview");
 
 // The kit keycap (the kbd utility in theme.css), one key per kbd.
@@ -176,6 +176,8 @@ const textLink = cn("inline-flex items-center text-fg link-underline", touchBox,
 		"bg-transparent text-fg font-body outline-none",
 		"backdrop:bg-scrim/50 motion-ok:backdrop:transition-opacity motion-ok:backdrop:duration-150 motion-ok:starting:open:backdrop:opacity-0",
 		"motion-ok:transition-opacity motion-ok:duration-150 motion-ok:starting:open:opacity-0",
+		// A tap's open (search-app.ts, openTouch): no fade, as the stand-in is already on screen.
+		"data-search-instant:transition-none! data-search-instant:backdrop:transition-none!",
 		className,
 	)}
 >
@@ -332,27 +334,30 @@ const textLink = cn("inline-flex items-center text-fg link-underline", touchBox,
 </dialog>
 
 <script>
-	import { startBoot } from "@astronomic-dev/search/boot";
+	import { startBoot, touchOpens } from "@astronomic-dev/search/boot";
+	import { prefetch, type Prefetch } from "@astronomic-dev/search/controller";
 	import { DIALOG, TRIGGER, bootConfig, keyHint, triggerKey } from "../lib/search-boot";
 
 	// Boot: until first use this only listens (hover, focus, a click or the shortcut), then loads lib/search-app.ts.
-	// It runs on every page with a search button, so it imports only the package's boot and lib/search-boot.ts (which
-	// imports nothing): one small file, no shared chunk (decision 0015, principle 7). The lazy app reads the config
-	// block strictly. The keys are those of the main button's dialog.
+	// It runs on every page with a search button, so it imports only the package's boot, its small prefetch and
+	// lib/search-boot.ts (which imports nothing): one small file, no shared chunk (decision 0015, principle 7). The lazy
+	// app reads the config block strictly. The keys are those of the main button's dialog.
 	const config = (d: Element) => bootConfig(d.querySelector("script[data-search-config]")?.textContent);
 	const apple = /mac|iphone|ipad|ipod/i.test((navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform || navigator.platform || "");
-	function keys(): string[] {
+	const mainTrigger = () => document.querySelector<HTMLElement>(`${TRIGGER}[data-search-main]`) ?? document.querySelector<HTMLElement>(TRIGGER);
+	/** The dialog with the same index, types and group as `t`. */
+	function dialogOf(t: Element | null): HTMLDialogElement | undefined {
 		const dialogs = [...document.querySelectorAll<HTMLDialogElement>(DIALOG)];
-		const first = dialogs[0];
-		if (!first) return [];
-		const site = config(first);
-		const main = document.querySelector(`${TRIGGER}[data-search-main]`) ?? document.querySelector(TRIGGER);
-		const dialog = main && dialogs.find((d) => triggerKey(d, site.index) === triggerKey(main, site.index));
+		const site = dialogs[0] && config(dialogs[0]).index;
+		return t && site ? dialogs.find((d) => triggerKey(d, site) === triggerKey(t, site)) : undefined;
+	}
+	function keys(): string[] {
+		const dialog = dialogOf(mainTrigger());
 		return dialog ? config(dialog).keys : [];
 	}
 	// The key hint on the main button, if it draws as a field: "⌘K" or "Ctrl K".
 	function hints(list: string[]): void {
-		const main = document.querySelector(`${TRIGGER}[data-search-main]`) ?? document.querySelector(TRIGGER);
+		const main = mainTrigger();
 		const text = keyHint(list, apple);
 		for (const hint of main?.querySelectorAll<HTMLElement>("[data-search-key-hint]") ?? []) {
 			hint.textContent = text;
@@ -367,5 +372,60 @@ const textLink = cn("inline-flex items-center text-fg link-underline", touchBox,
 		list.splice(0, list.length, ...keys());
 		hints(list);
 	});
-	startBoot({ selector: TRIGGER, keys: list, load: () => import("../lib/search-app") });
+	// On first use the manifest and index file loads start alongside the app's, for the trigger's index; the app
+	// takes them once, for that index only.
+	let early: Prefetch | undefined;
+	// Not kept across a ClientRouter swap: a later page starts its own (the app drops the one it holds, too).
+	document.addEventListener("astro:after-swap", () => (early = undefined));
+	function preload(t: HTMLElement): void {
+		const first = document.querySelector(DIALOG);
+		const site = first && config(first);
+		if (!site?.manifest) return;
+		early = prefetch({ index: t.getAttribute("data-search-index") || site.index, lang: document.documentElement.lang, manifestUrl: site.manifest, fetch });
+	}
+	// A tap on a phone: iOS opens the keyboard only for a focus() made inside the tap, and the app may not be in yet. So
+	// the tap focuses a stand-in made from the dialog's own markup: in a manual popover with the dialog's classes (the
+	// same @container/search and recipe classes answer), a shallow copy of its panel, a deep copy of its header and a
+	// drawn but inert copy of its close button, with no id, tabindex, search hook or combobox state. It sits beside the dialog, or
+	// in the opener's open modal (a MobileMenu drawer). The package's helper holds it, then the app's openTouch
+	// (lib/search-app.ts) hands the focus, text and caret to the real dialog. No popover support: an ordinary open.
+	const touch = touchOpens({
+		show(t) {
+			const d = dialogOf(t);
+			const host = document.createElement("div");
+			if (!d || !host.showPopover) return null;
+			const q = (s: string) => d.querySelector(s) as HTMLElement;
+			host.popover = "manual";
+			// The scrim: the backdrop's own fill, in this source.
+			host.className = d.className + " backdrop:bg-scrim/50";
+			const panel = q("[data-search-panel]").cloneNode();
+			const close = q("[data-search-close]").cloneNode(true) as HTMLElement;
+			// Drawn only: inert and hidden from assistive tech; no clone part keeps a tabindex, so the box is the one tab stop.
+			close.inert = true;
+			close.ariaHidden = "true";
+			host.append(panel);
+			panel.append(q("[data-search-header]").cloneNode(true), close);
+			for (const el of host.querySelectorAll("*")) for (const { name } of [...el.attributes]) if (/^(id|role|tabindex|data-search|aria-(?!label|hidden))/.test(name)) el.removeAttribute(name);
+			const input = host.querySelector("input") as HTMLInputElement;
+			// What the dialog opens on: the trigger's own search, else the last one.
+			const own = t.dataset;
+			input.value = own.searchQuery ?? ((own.searchType ?? own.searchFilters) == null ? (q("input") as HTMLInputElement).value : "");
+			// In the dialog's own parent (its tokens, dark mode and preset scope), or in the opener's open modal.
+			(t.closest("dialog[open]") ?? (d.parentNode as ParentNode)).append(host);
+			host.showPopover();
+			return { host, input, searchPage: q("[data-search-see-all]").getAttribute("href") ?? undefined };
+		},
+	});
+	startBoot({
+		selector: TRIGGER,
+		touch,
+		keys: list,
+		preload,
+		load: () =>
+			import("../lib/search-app").then((app) => {
+				if (early) app.usePrefetch(early);
+				early = undefined;
+				return app;
+			}),
+	});
 </script>

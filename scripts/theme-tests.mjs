@@ -99,7 +99,7 @@ async function noindexProblems(h) {
 	const robots = [...page.html.matchAll(/<meta\b[^>]*\bname=["']robots["'][^>]*>/g)].map((m) => m[0]);
 	if (page.status !== 200) problems.push(`${path}: status ${page.status}`);
 	else if (robots.length !== 1 || !/content=["']noindex["']/.test(robots[0])) problems.push(`${path}: expected one <meta name="robots" content="noindex">, found ${robots.length ? robots.join(" ") : "none"}`);
-	if (/data-pagefind-body/.test(page.html)) problems.push(`${path}: has data-pagefind-body (it must stay out of the search index)`);
+	if (/data-search-body/.test(page.html)) problems.push(`${path}: has data-search-body (it must stay out of the search index)`);
 	return problems;
 }
 
@@ -312,9 +312,11 @@ async function readerMapProblems(kind, h) {
  * button link and no page photo, the talks' separators, and the lightbox (its dialog and photo links); then every site
  * link in those pages' <main> answers 200; then the fixture post's lightbox, every photo link's large file (200, an image), the
  * noindex and SEO fixture posts, the site files (robots, the sitemap inventory, the
- * feed), the share cards and search.
+ * feed), the share cards and search. The parity runners report status differences
+ * themselves; `{ statuses: true }` (test:adapter, with CONTENT_SAMPLE=1) also names each page that answers another
+ * status, so a missing page fails.
  */
-async function assertPages(kind, h) {
+async function assertPages(kind, h, { statuses = false } = {}) {
 	// First, before any other request reaches the editor-first URLs.
 	const problems = [...(await privateResponseProblems(kind, h, [READER_MAP]))];
 	const html = {};
@@ -322,7 +324,10 @@ async function assertPages(kind, h) {
 	const largeFiles = new Set();
 	for (const [path, status] of Object.entries(pages)) {
 		const page = await h.get(path);
-		if (page.status !== status) continue; // The runners report status differences.
+		if (page.status !== status) {
+			if (statuses) problems.push(`${path}: answered ${page.status}, expected ${status}`);
+			continue; // The parity runners report status differences.
+		}
 		problems.push(...headProblems(path, page.html));
 		if (status === 404 && !/<h1\b/.test(page.html)) problems.push(`${path}: the 404 page has no h1`);
 		html[path] = page.html;

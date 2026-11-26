@@ -32,7 +32,7 @@
  *
  * It imports only lib/modal.ts, so its logic runs under Node's test runner.
  */
-import { leaves, OVERFLOW, openModal, outside, plain, type Box, type Press } from "./modal.ts";
+import { leaves, openModal, outside, plain, unmark, type Box, type Press } from "./modal.ts";
 
 /** A link that opens the lightbox. */
 export const TRIGGER = "a[data-lightbox]";
@@ -473,7 +473,7 @@ export function start({ dev = false }: { dev?: boolean } = {}) {
 		state = null;
 		swipeStart = null;
 		pressStart = null;
-		document.documentElement.removeAttribute(OVERFLOW);
+		unmark(document.documentElement);
 		// The script focuses the link itself: Safari does not focus a clicked link, so the browser's own return lands on the page.
 		if (!restore) return;
 		const to = returnTo(last, opener, (link) => link.isConnected && shown(link));

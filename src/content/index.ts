@@ -15,20 +15,12 @@ export type * from "@astronomic/content";
 export type * from "./model";
 
 // `content.search` is the source's request search: hidden in a static build,
-// which searches with Pagefind instead (see `searchKind`).
+// which searches its own index instead (see `searchKind`).
 export const useContent = createThemeContent<Model, Settings>(source, DEFAULT_SETTINGS, { output: import.meta.env.CONTENT_OUTPUT });
 
 /**
  * The search the site offers: "request" (a server build whose source
- * searches), "static" (a static build: Pagefind, see `staticSearch()` in
- * astro.config.mjs) or undefined (no search box, no results).
+ * searches), "static" (a static build: Astronomic Search, see
+ * src/search/static/) or undefined (no search box, no results).
  */
 export const searchKind = (content: { search?: unknown }) => searchMode(content.search, import.meta.env.CONTENT_OUTPUT);
-
-/**
- * Spread on a part of an entry page that static search leaves out: content shared by many pages or about other
- * entries (the newsletter card, more posts, the author box). Empty unless the build searches
- * statically.
- */
-export const searchIgnore = (content: { search?: unknown }): { "data-pagefind-ignore"?: "" } =>
-	searchKind(content) === "static" ? { "data-pagefind-ignore": "" } : {};

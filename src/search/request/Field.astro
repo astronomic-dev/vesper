@@ -1,0 +1,10 @@
+---
+/** Any other server source: the search form above a list. A plain form that posts to the search page. */
+import SearchForm from "@astronomic/theme-core/components/SearchForm.astro";
+import type { FieldProps } from "../types";
+
+type Props = FieldProps;
+const { action, strings } = Astro.props;
+---
+
+<SearchForm variant="row" action={action} strings={strings} />

@@ -1,0 +1,9 @@
+---
+/** Any other server source: a plain link to the search page (no dialog). */
+import type { TriggerProps } from "../types";
+
+type Props = TriggerProps;
+const { href, current, main, class: className, ...rest } = Astro.props;
+---
+
+<a href={href} class={className} aria-current={current ? "page" : undefined} {...rest}><slot /></a>

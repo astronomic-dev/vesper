@@ -27,7 +27,7 @@ test("theme colors merge as colors; theme sizes, fonts, spaces and widths merge 
 test("the kit's names are all in the theme's copy", () => {
 	const quoted = (text) => new Set([...text.matchAll(/"([\w-]+)"/g)].map((m) => m[1]));
 	const block = (text) => text.slice(text.indexOf("extendTailwindMerge({"), text.indexOf("export function cn"));
-	const kit = quoted(block(readFileSync(fileURLToPath(import.meta.resolve("@astronomic/ui/lib/cn.ts")), "utf8")));
+	const kit = quoted(block(readFileSync(fileURLToPath(import.meta.resolve("@astronomic-dev/ui/lib/cn.ts")), "utf8")));
 	const theme = quoted(block(readFileSync(new URL("../../src/utils/cn.ts", import.meta.url), "utf8")));
 	assert.deepEqual([...kit].filter((name) => !theme.has(name)), []);
 });

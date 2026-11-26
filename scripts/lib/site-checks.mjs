@@ -10,6 +10,8 @@
  * SITEMAP, INDEXED, NOT_INDEXED and PHOTO_PAGES name the demo's pages with every page switch on (the default).
  */
 import { existsSync, readdirSync } from "node:fs";
+import { loadSearcher } from "@astronomic-dev/search/controller";
+import { createSearch, minisearchEngine } from "@astronomic-dev/search/core";
 import { attrs } from "@astronomic/theme-core/scripts/harness.mjs";
 
 /** The site URL the test builds use (astro.config.mjs's default; SITE_URL is not set). */
@@ -65,7 +67,7 @@ export const SITEMAP = [
 
 /**
  * Pages static search indexes (the entries, and /speaking and /uses as one page each), and structural pages it leaves
- * out.
+ * out. Checks of the rule in src/search/static/integration.mjs (which knows routes, not pages).
  */
 export const INDEXED = [
 	"/articles/designing-for-people-who-are-offline-on-purpose",
@@ -105,31 +107,121 @@ const plain = (text) => text.replace(/\*/g, "");
 // ---------------------------------------------------------------------------
 // Search
 
+/** The EmDash search plugin's manifest (its first build starts when the server does, so it is waited for). */
+const MANIFEST = "/_emdash/api/plugins/astronomic-search/manifest";
+
+/** The search plugin's index: the pages it holds (url, title, text), once it is built. Throws with the reason. */
+export async function pluginIndex(base, wait = 90_000) {
+	const end = Date.now() + wait;
+	let res = await fetch(base + MANIFEST);
+	while (res.status === 503 && Date.now() < end) {
+		await new Promise((r) => setTimeout(r, 1000));
+		res = await fetch(base + MANIFEST);
+	}
+	if (res.status !== 200) throw new Error(`${MANIFEST}: status ${res.status}`);
+	const locales = Object.values((await res.json()).indexes?.default?.locales ?? {});
+	if (locales.length !== 1) throw new Error(`${MANIFEST}: ${locales.length} index files (expected 1)`);
+	const file = await fetch(new URL(locales[0], `${base}${MANIFEST}/`));
+	if (file.status !== 200) throw new Error(`${locales[0]}: status ${file.status}`);
+	return (await file.json()).records.pages;
+}
+
+/**
+ * EmDash's search plugin: every page loads the dialog (stock settings: takeover off), the footer's link and the form on
+ * /articles open it, the search page's head is outside the results it draws, its index holds INDEXED and none of NOT_INDEXED, and
+ * it finds what a static build's does (FOUND, FOUND_BY_TERM).
+ */
+async function pluginProblems(h, html) {
+	const problems = [];
+	for (const path of ["/", "/articles", "/search?q=ridgeline"]) {
+		const page = html[path] ?? (await h.get(path)).html;
+		const config = page.match(/<script\b[^>]*\bdata-search-config\b[^>]*>([^<]*)<\/script>/)?.[1];
+		if (!/<script\b[^>]*src="\/_search\/embed\/search-embed\.js\?ver=/.test(page) || !config) problems.push(`${path}: no search dialog script or config tag`);
+		else if (JSON.parse(config).takeover?.enabled !== false) problems.push(`${path}: the search plugin's takeover is on`);
+		if (!/<span\b[^>]*data-search-placement[^>]*data-search-open="modal"[^>]*><a\b[^>]*href="\/search"/.test(page)) problems.push(`${path}: the footer's search link does not open the dialog`);
+	}
+	const articles = html["/articles"] ?? (await h.get("/articles")).html;
+	if (!/<div\b[^>]*data-search-placement[^>]*data-search-open="inline"[^>]*>\s*<form\b[^>]*action="\/search"[^>]*method="get"/.test(articles)) problems.push("/articles: the search form does not open the dialog");
+	const s = (await h.get("/search?q=ridgeline")).html;
+	const mount = s.search(/<div\b[^>]*\bdata-search-results\b[^>]*data-search-query="ridgeline"/);
+	if (mount < 0) problems.push("/search?q=ridgeline: no results mount");
+	const before = s.slice(s.indexOf("<main"), mount);
+	if (!/<h1/.test(before) || !/data-head-lead/.test(before) || !/<form\b[^>]*action="\/search"/.test(before)) problems.push("/search?q=ridgeline: the <h1>, the lead or the form is inside the results mount");
+	if ((s.slice(mount).split("</main>")[0].match(/<form\b/g) ?? []).length) problems.push("/search?q=ridgeline: a form inside the results mount");
+	if ((s.match(/\bdata-search-results\b/g) ?? []).length !== 1 + (s.match(/\[data-search-results\]/g) ?? []).length) problems.push("/search?q=ridgeline: more than one results mount");
+	if (/<div\b[^>]*\bdata-search-results\b/.test((await h.get("/search")).html)) problems.push("/search: a results mount with no query");
+	try {
+		const urls = (await pluginIndex(h.base)).map((p) => p.url);
+		for (const path of INDEXED) if (!urls.includes(path)) problems.push(`the search plugin's index: no ${path}`);
+		for (const path of NOT_INDEXED) if (urls.includes(path)) problems.push(`the search plugin's index: holds ${path}`);
+		if (h.fixturesLoaded && NOINDEX_POST && urls.includes(NOINDEX_POST)) problems.push(`the search plugin's index: holds the noindex post ${NOINDEX_POST}`);
+		problems.push(...findProblems((await searchIndex(h.base, MANIFEST)).find, "the search plugin's index"));
+	} catch (e) {
+		problems.push(`the search plugin's index: ${e.message}`);
+	}
+	return problems;
+}
+
+/** What search must find, and where, in every build. A talk and a uses item: one hit for their page. */
+const FOUND = [
+	["treeline", "/articles/shipping-a-map-app-that-works-above-treeline"],
+	["ridgeline", "/projects/ridgeline"],
+	["megabytes", "/speaking"],
+	["tripod", "/uses"],
+];
+/** A category's and a tag's names find their posts: keywords in a static build's index and in the EmDash plugin's. */
+const FOUND_BY_TERM = [
+	["photography", "/articles/a-darkroom-in-a-closet-for-180"],
+	["typography", "/articles/a-type-scale-for-cracked-screens"],
+];
+
+/** A path as the theme links it: no trailing slash. */
+const path = (url) => url.replace(/(.)\/$/, "$1");
+
+/** FOUND and FOUND_BY_TERM in an index (`find`, see `searchIndex`). */
+const findProblems = (find, where) =>
+	[...FOUND, ...FOUND_BY_TERM].filter(([q, to]) => !find(q).includes(to)).map(([q, to]) => `${where} "${q}": no hit for ${to} (hits: ${find(q).join(", ") || "none"})`);
+
+/**
+ * A search index, loaded over `base` as the browser loads it: `pages`, each page record's type, title, text, path (no
+ * trailing slash, as the theme links) and url (as a result links to it), and `find(q)`, the paths a search gives, best
+ * first. The static build's by default.
+ */
+export async function searchIndex(base, manifestUrl = "/_search/manifest.json") {
+	const load = async (url, init) => fetch(new URL(url, base), init);
+	const manifest = await (await load(manifestUrl)).json();
+	const locales = manifest.indexes.default.locales;
+	const file = await (await load(Object.values(locales)[0])).json();
+	const searcher = await loadSearcher({ index: "default", lang: Object.keys(locales)[0], manifestUrl, fetch: load, engine: minisearchEngine, createSearch });
+	return {
+		types: file.settings.types,
+		pages: file.records.pages.map(({ type, title, text = "", url }) => ({ type, title, text, url, path: path(url) })),
+		find: (q) => searcher.run({ q, group: false, headingsPerPage: 0, linked: true }).groups.flatMap((g) => g.items.map(({ page }) => path(page.url))),
+	};
+}
+
+/** The type of an indexed page, by its path. */
+const typeOf = (path) => (path.startsWith("/articles/") ? "posts" : path.startsWith("/projects/") ? "projects" : "pages");
+
 /**
  * Search per build: a server build searches the source per request (a hit for a post, a project, /speaking and
- * /uses); a static
- * build searches with Pagefind (the entry pages carry the index markup; structural pages do not). The title and the
- * box come before the live regions.
+ * /uses), and an EmDash build has the search plugin (`pluginProblems`); a static build searches its own index, which holds the entry pages, /speaking and /uses, and nothing else.
+ * The title and the box come before the live regions.
  */
 export async function searchProblems(kind, h, html) {
 	const problems = [];
 	const mode = (page) => page.match(/<div\b[^>]*\bdata-search-page\b[^>]*>/)?.[0] ?? "";
-	const indexed = (page) => /<main\b[^>]*\bdata-pagefind-body\b/.test(page ?? "");
+	const indexed = (page) => /<main\b[^>]*\bdata-search-body\b/.test(page ?? "");
 	const header = (path, page) => {
-		const part = page.slice(Math.max(0, page.search(/<div\b[^>]*\bdata-search-page\b/)));
+		// EmDash's head comes before the search part; a static build's is inside it.
+		const part = page.slice(Math.max(0, kind === "server" ? page.indexOf("<main") : page.search(/<div\b[^>]*\bdata-search-page\b/)));
 		const h1 = part.indexOf("<h1");
 		if (h1 < 0 || /aria-live/.test(part.slice(0, h1))) problems.push(`${path}: the <h1> is missing or inside a live region`);
 		if (!/<p\b[^>]*data-count-text[^>]*aria-live="polite"/.test(part)) problems.push(`${path}: no [data-count-text] with aria-live="polite"`);
 		if (!/<form\b[^>]*action="\/search"[^>]*role="search"/.test(part)) problems.push(`${path}: no search box`);
 	};
 	if (kind === "server") {
-		for (const [q, href] of [
-			["treeline", "/articles/shipping-a-map-app-that-works-above-treeline"],
-			["ridgeline", "/projects/ridgeline"],
-			// A talk and a uses item: one hit for their page, as static search indexes it.
-			["megabytes", "/speaking"],
-			["tripod", "/uses"],
-		]) {
+		for (const [q, href] of FOUND) {
 			const path = `/search?q=${q}`;
 			const s = await h.get(path);
 			if (s.status !== 200) {
@@ -153,24 +245,50 @@ export async function searchProblems(kind, h, html) {
 			const hidden = await h.get("/search?q=old+gear+list");
 			if (hidden.html.includes(`href="${NOINDEX_POST}"`)) problems.push(`/search?q=old+gear+list: a hit for the noindex post ${NOINDEX_POST}`);
 		}
+		if ((await h.conformance()).adapter === "emdash") problems.push(...(await pluginProblems(h, html)));
+		else if (/data-search-placement|data-search-results/.test((await h.get("/search?q=treeline")).html)) problems.push("/search?q=treeline: search plugin markup on a source that has no plugin");
 		const none = await h.get("/search?q=zzqxv");
 		if (!/data-state="none"/.test(mode(none.html))) problems.push(`/search?q=zzqxv: expected no results, found ${mode(none.html) || "none"}`);
-		for (const path of INDEXED) if (/data-pagefind-body|data-pagefind-meta/.test(html[path] ?? "")) problems.push(`${path}: search index markup on a server build`);
+		for (const path of INDEXED) if (/data-search-body|data-pagefind-body|data-pagefind-meta/.test(html[path] ?? "")) problems.push(`${path}: search index markup on a server build`);
 	} else {
 		const s = html["/search"] ?? (await h.get("/search")).html;
 		if (!/data-mode="static"/.test(mode(s))) problems.push('/search: no data-search-page with data-mode="static"');
 		header("/search", s);
-		const pf = await fetch(`${h.base}/pagefind/pagefind.js`);
-		if (pf.status !== 200) problems.push(`/pagefind/pagefind.js: status ${pf.status}`);
+		// With no JavaScript (or no index): a note, and links to browse that show.
+		const browse = s.match(/<div\b[^>]*data-search-browse[^>]*>[\s\S]*?<\/ul>/)?.[0] ?? "";
+		if (/data-search-browse[^>]*\bhidden/.test(browse) || !/href="\/articles"/.test(browse) || !/href="\/"/.test(browse)) problems.push("/search: no visible links to browse");
+		if (!/<noscript>[^<]*<p\b[^>]*data-search-noscript/.test(browse)) problems.push("/search: no note for JavaScript off");
+		for (const path of ["/pagefind/pagefind.js", "/_search/__records.json"]) {
+			const res = await fetch(`${h.base}${path}`);
+			await res.arrayBuffer();
+			if (res.status !== 404) problems.push(`${path}: status ${res.status}, not 404`);
+		}
+		const index = await searchIndex(h.base);
+		const paths = index.pages.map((p) => p.path);
+		// The sitemap's pages but the lists: exactly what the index holds.
+		const expected = SITEMAP.filter((path) => !NOT_INDEXED.includes(path) && !/^\/(articles\/category|tags)\//.test(path)).sort();
+		for (const path of expected) if (!paths.includes(path)) problems.push(`the search index lacks ${path}`);
+		for (const path of paths) if (!expected.includes(path)) problems.push(`the search index holds ${path}`);
+		for (const path of INDEXED) if (!expected.includes(path)) problems.push(`${path}: in INDEXED, not in SITEMAP`);
+		for (const page of index.pages) {
+			if (page.type !== typeOf(page.path)) problems.push(`the search index: ${page.path} is of type ${page.type}`);
+			// The parts around an entry's text (the links back, the meta line, the facts, the stamp) are not in it.
+			const around = page.text.match(/All articles|All projects|\bmin read\b|Visit the project|More projects|Updated \w+ \d/)?.[0];
+			if (around) problems.push(`the search index: "${around}" in the text of ${page.path}`);
+			if (page.title.includes("*")) problems.push(`the search index: an emphasis marker in the title of ${page.path}`);
+		}
+		for (const type of ["posts", "projects", "pages"]) if (!index.types[type]?.label) problems.push(`the search index: no label for ${type}`);
+		problems.push(...findProblems(index.find, "search"));
+		if (index.find("zzqxv").length) problems.push(`search "zzqxv": hits ${index.find("zzqxv").join(", ")}`);
 		for (const path of INDEXED) {
 			const page = html[path] ?? (await h.get(path)).html;
-			if (!indexed(page)) problems.push(`${path}: <main> has no data-pagefind-body (static search must index it)`);
+			if (!indexed(page)) problems.push(`${path}: <main> has no data-search-body`);
 		}
-		if (NOINDEX_POST && indexed((await h.get(NOINDEX_POST)).html)) problems.push(`${NOINDEX_POST}: the noindex post is in the search index`);
+		if (NOINDEX_POST && indexed((await h.get(NOINDEX_POST)).html)) problems.push(`${NOINDEX_POST}: the noindex post's <main> has data-search-body`);
 	}
 	for (const path of NOT_INDEXED) {
 		const page = html[path] ?? (await h.get(path)).html;
-		if (indexed(page)) problems.push(`${path}: <main> has data-pagefind-body (only entry pages are indexed)`);
+		if (indexed(page)) problems.push(`${path}: <main> has data-search-body (only entry pages have it)`);
 	}
 	return problems;
 }

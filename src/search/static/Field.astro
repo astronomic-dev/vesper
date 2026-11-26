@@ -1,0 +1,88 @@
+---
+/**
+ * Static builds: the search form above a list. Once search has loaded (it starts when the field gets focus), typing or
+ * submitting opens the dialog on the field's text, and closing it goes back to the field. Until then, on a tap on its button, with no
+ * JavaScript, or when search cannot load, it is a plain form that goes to the search page.
+ *
+ * The page's search trigger (the footer's) loads the dialog's script.
+ */
+import SearchForm from "@astronomic/theme-core/components/SearchForm.astro";
+import type { FieldProps } from "../types";
+
+type Props = FieldProps;
+const { action, strings } = Astro.props;
+---
+
+<div data-search-field><SearchForm variant="row" action={action} strings={strings} /></div>
+
+<script>
+	import type { SearchElement } from "@astronomic-dev/search/ui";
+
+	function setup(root: HTMLElement) {
+		const form = root.querySelector("form");
+		const input = root.querySelector("input");
+		if (!form || !input || root.querySelector("a")) return; // "a": set up already (below)
+
+		// A trigger of the page's one dialog, out of sight: the field presses it with its own text (README, "Open on a
+		// search"). The dialog gives focus back to the trigger that opened it, so this one hands it on to the field, with the dialog's text.
+		const trigger = document.createElement("a");
+		trigger.hidden = true;
+		trigger.href = form.action;
+		trigger.dataset.searchTrigger = "";
+		trigger.focus = (options) => {
+			input.value = dialog()?.controller.getState().query ?? "";
+			input.focus(options);
+		};
+		root.append(trigger);
+
+		/** Text typed since the field got focus and since the dialog last opened: only that opens it, never focus. */
+		let typed = false;
+		/** An input method (Japanese, for one) holds unfinished text. */
+		let composing = false;
+		const dialog = () => document.querySelector<SearchElement>("astronomic-search");
+		function open(): boolean {
+			const query = input!.value.trim();
+			if (!query || !trigger.hasAttribute("data-search-bound") || dialog()?.controller.getState().status !== "ready") return false;
+			typed = false;
+			trigger.dataset.searchQuery = query;
+			trigger.click();
+			return true;
+		}
+		const typedOpen = () => typed && !composing && document.activeElement === input && open();
+
+		/** Loads the dialog and its index, as a pointer over a trigger does. Only clicks move the page, so this never does. */
+		const warm = () => trigger.dispatchEvent(new PointerEvent("pointerover", { bubbles: true }));
+		const onInput = () => {
+			typed = document.activeElement === input;
+			warm();
+			typedOpen();
+		};
+		// The dialog answers the trigger: text typed while it loaded opens it once the index is in.
+		new MutationObserver(() => {
+			if (!trigger.hasAttribute("data-search-bound")) return;
+			dialog()?.controller.preload().then(typedOpen, () => {});
+		}).observe(trigger, { attributeFilter: ["data-search-bound"] });
+
+		input.addEventListener("focus", warm);
+		input.addEventListener("input", (e) => (e as InputEvent).isComposing || onInput());
+		input.addEventListener("compositionstart", () => (composing = true));
+		input.addEventListener("compositionend", () => {
+			composing = false;
+			onInput();
+		});
+		input.addEventListener("blur", () => (typed = composing = false));
+		// A tap on the form's button goes to the search page: on an iPhone a dialog that opens inside a tap types nothing.
+		let tapped = false;
+		form.addEventListener("pointerup", (e) => (tapped = e.pointerType === "touch" && e.target !== input));
+		form.addEventListener("keydown", () => (tapped = false));
+		form.addEventListener("submit", (e) => {
+			if (!tapped && open()) e.preventDefault();
+			else typed = false;
+		});
+	}
+
+	/** On load, and after a ClientRouter swap (this script runs once). */
+	const start = () => document.querySelectorAll<HTMLElement>("[data-search-field]").forEach(setup);
+	start();
+	document.addEventListener("astro:page-load", start);
+</script>

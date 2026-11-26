@@ -2,7 +2,9 @@
  * The Search family's pure helpers for the lazy apps (lib/search-app.ts and lib/search-page-app.ts): the config block
  * the shell writes, "See all results", and filling a result option from the shell's <template>. No listeners and no
  * globals, so it runs under node --test on a stand-in DOM. What the shell's eager script needs (the selectors, the key
- * hint, the trigger and dialog keys) is in lib/search-boot.ts, so that script shares no chunk with the apps.
+ * hint, the trigger and dialog keys) is in lib/search-boot.ts, so that script shares no chunk with the apps; the app's
+ * own copies of the selectors and the trigger key are here (a test keeps the two the same), so the eager file carries
+ * nothing for the app.
  *
  * Result text only ever becomes text nodes and <mark> elements, through the search package's marked(), never markup.
  * It imports only types from the package; the apps pass marked() and isSafeUrl() in (decision 0015, principle 7).
@@ -13,6 +15,16 @@ import type { GroupBy, Highlight, IndexSettings, SearchRecord, SearchResult, Sug
 
 /** The JSON block inside each dialog (type="application/json": data, never run, so a strict CSP allows it). */
 export const CONFIG = "script[data-search-config]";
+
+/** The kit's search buttons (the same as lib/search-boot.ts's TRIGGER). */
+export const TRIGGER = '[data-search-trigger][data-search-ui="kit"]';
+/** The shell's dialog, one per index, types and group (the same as lib/search-boot.ts's DIALOG). */
+export const DIALOG = "dialog[data-search-dialog]";
+
+/** A button's or a dialog's key, from its data-search-index, -types and -group (the same as lib/search-boot.ts's). */
+export function triggerKey(el: { getAttribute(name: string): string | null }, defaultIndex: string): string {
+	return [el.getAttribute("data-search-index") || defaultIndex, el.getAttribute("data-search-types") ?? "", el.getAttribute("data-search-group") ?? ""].join("|");
+}
 
 type Attrs = { getAttribute(name: string): string | null };
 
@@ -86,6 +98,16 @@ export function parseConfig(text: string | null | undefined): SearchConfig {
 		strings: c.strings && typeof c.strings === "object" ? c.strings : {},
 		browse: Array.isArray(c.browse) ? c.browse : [],
 	};
+}
+
+/**
+ * The page "See all results" starts from: the trigger's own href, or `fallback` (the shell's search page) for a
+ * SearchButton's generated default link (marked data-search-default) or no trigger. Any other trigger, such as a plain
+ * link with data-search-trigger and its own href, keeps its destination.
+ */
+export function triggerPage(trigger: Pick<Element, "hasAttribute" | "getAttribute"> | undefined, fallback: string): string {
+	const own = trigger && !trigger.hasAttribute("data-search-default") ? trigger.getAttribute("href") : null;
+	return own || fallback;
 }
 
 /**

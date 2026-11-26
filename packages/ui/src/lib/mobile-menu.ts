@@ -15,7 +15,9 @@
  *   action, a page link and a same-page jump alike, so the page it lands on (or the one the browser keeps for Back)
  *   never shows the panel open. A link opened elsewhere (a modifier key held, a button other than the main one, a
  *   target other than _self, or a download) leaves it open. A link whose default action was prevented closes it too: ClientRouter prevents it on every link
- *   it follows itself, a same-page jump included;
+ *   it follows itself, a same-page jump included. Not a search button ([data-search-trigger]) whose script handled the
+ *   click (prevented it): a tap, a mouse or a key alike, the search opens over the open panel, and focus returns to the
+ *   button in it on close (the search closes the panel itself when any link in it is followed in this tab);
  * - closes it when the window widens past the fold point (its open button no longer shows), so the wide page is never
  *   left inert under a panel it has no button for;
  * - keeps aria-expanded on the open button: true while its panel is open, false once it closes, however it closed;
@@ -42,6 +44,8 @@ export const OPEN = "[data-mobile-menu-open]";
 export const MENU = "dialog[data-mobile-menu]";
 /** What closes the panel when pressed or followed inside it: the close button, and every link. */
 export const CLOSES = "[data-mobile-menu-close], a[href]";
+/** A search button (Search's and the search package's): handled by its script, it opens over the panel. */
+export const SEARCH = "[data-search-trigger]";
 
 type El = {
 	closest(selector: string): El | null;
@@ -53,9 +57,10 @@ type El = {
 /**
  * What a click does: "open" (the panel of the open button it hit), "close" (the open panel it hit), or nothing.
  * `target` is the element clicked, `x` and `y` where, `press` its button and keys: a link opened elsewhere (a
- * modifier key, another button, a target or a download) leaves the panel open.
+ * modifier key, another button, a target or a download) leaves the panel open, and so does a search button whose
+ * click its script handled (`press.defaultPrevented`).
  */
-export function clickAction(target: El | null, x: number, y: number, press: Press = {}): { action: "open"; button: El } | { action: "close"; dialog: El } | null {
+export function clickAction(target: El | null, x: number, y: number, press: Press & { defaultPrevented?: boolean } = {}): { action: "open"; button: El } | { action: "close"; dialog: El } | null {
 	if (!target) return null;
 	const button = target.closest(OPEN);
 	if (button) return { action: "open", button };
@@ -63,7 +68,7 @@ export function clickAction(target: El | null, x: number, y: number, press: Pres
 	if (!dialog?.open) return null;
 	if (target === dialog) return outside(dialog.getBoundingClientRect(), x, y) ? { action: "close", dialog } : null;
 	const hit = target.closest(CLOSES);
-	if (!hit || (hit.closest("a[href]") === hit && (!plain(press) || leaves(hit)))) return null;
+	if (!hit || (hit.closest("a[href]") === hit && (!plain(press) || leaves(hit) || (press.defaultPrevented && hit.closest(SEARCH) === hit)))) return null;
 	return { action: "close", dialog };
 }
 

@@ -1,4 +1,4 @@
-# @astronomic/ui
+# @astronomic-dev/ui
 
 Restylable Astro components driven by semantic `--ui-*` tokens. Use only token-based classes, and never the `dark:` variant: dark mode swaps the token values.
 
@@ -12,18 +12,18 @@ In the site's main CSS file:
 
 ```css
 @import "tailwindcss";
-@import "@astronomic/ui/tokens.css";
-@import "@astronomic/ui/theme.css";
-@import "@astronomic/ui/presets/soft.css"; /* optional: a preset, after tokens.css */
+@import "@astronomic-dev/ui/tokens.css";
+@import "@astronomic-dev/ui/theme.css";
+@import "@astronomic-dev/ui/presets/soft.css"; /* optional: a preset, after tokens.css */
 
 /* Tailwind skips node_modules, so point it at the component source.
    The path is relative to this CSS file (here: src/styles/global.css). */
-@source "../../node_modules/@astronomic/ui/src";
+@source "../../node_modules/@astronomic-dev/ui/src";
 ```
 
 Without the `@source` line the components render unstyled.
 
-Without a preset you get the default look, Minimal. The presets in `@astronomic/ui/presets/`:
+Without a preset you get the default look, Minimal. The presets in `@astronomic-dev/ui/presets/`:
 
 | Preset | File | Fonts | Fontsource packages |
 | --- | --- | --- | --- |
@@ -48,9 +48,9 @@ Import by path:
 
 ```astro
 ---
-import Button from "@astronomic/ui/components/Button.astro";
-import Card from "@astronomic/ui/components/Card.astro";
-import Navbar from "@astronomic/ui/components/Navbar.astro";
+import Button from "@astronomic-dev/ui/components/Button.astro";
+import Card from "@astronomic-dev/ui/components/Card.astro";
+import Navbar from "@astronomic-dev/ui/components/Navbar.astro";
 ---
 ```
 
@@ -238,7 +238,7 @@ import Navbar from "@astronomic/ui/components/Navbar.astro";
 
   ```astro
   ---
-  import { describedBy } from "@astronomic/ui/lib/field.ts";
+  import { describedBy } from "@astronomic-dev/ui/lib/field.ts";
   ---
   <Field label="Email" for="email" hint="We reply within two days." error={error} required>
     <Input id="email" name="email" type="email" required invalid={!!error} aria-describedby={describedBy("email", { hint: true, error })} />
@@ -255,9 +255,9 @@ import Navbar from "@astronomic/ui/components/Navbar.astro";
 
 ```astro
 ---
-import Field from "@astronomic/ui/components/Field.astro";
-import Form from "@astronomic/ui/components/Form.astro";
-import Input from "@astronomic/ui/components/Input.astro";
+import Field from "@astronomic-dev/ui/components/Field.astro";
+import Form from "@astronomic-dev/ui/components/Form.astro";
+import Input from "@astronomic-dev/ui/components/Input.astro";
 ---
 <Form action="https://formspree.io/f/<id>" honeypot={{ name: "_gotcha" }} submitLabel="Join">
   <Field label="Email" for="join-email" required>
@@ -302,9 +302,9 @@ A heading may mark one phrase with asterisks: `Built for *the long run*`. With `
 
 ```astro
 ---
-import HeroSplit from "@astronomic/ui/components/HeroSplit.astro";
-import StepsColumns from "@astronomic/ui/components/StepsColumns.astro";
-import { plainHeading } from "@astronomic/ui/lib/emphasis.ts";
+import HeroSplit from "@astronomic-dev/ui/components/HeroSplit.astro";
+import StepsColumns from "@astronomic-dev/ui/components/StepsColumns.astro";
+import { plainHeading } from "@astronomic-dev/ui/lib/emphasis.ts";
 const heading = "Build sites that *last*.";
 ---
 <title>{plainHeading(heading)}</title>
@@ -326,7 +326,7 @@ Write `motionScript` inline in `<head>`, after your styles, so the pause flag an
 
 ```astro
 ---
-import { motionScript } from "@astronomic/ui/lib/motion.ts";
+import { motionScript } from "@astronomic-dev/ui/lib/motion.ts";
 ---
 <html lang="en" class="reveal" data-motion={calm ? "calm" : undefined}>
 	<head>
@@ -365,7 +365,7 @@ Astro's `<Image>` works as it is when `src` is an imported image:
 ```astro
 ---
 import { Image } from "astro:assets";
-import TeamGrid from "@astronomic/ui/components/TeamGrid.astro";
+import TeamGrid from "@astronomic-dev/ui/components/TeamGrid.astro";
 import ada from "../photos/ada.jpg";
 ---
 <TeamGrid items={[{ name: "Ada Brook", role: "Design lead", image: { src: ada } }]} imageComponent={Image} />
@@ -378,7 +378,7 @@ For a CMS, write a small wrapper. Pass your own image object as the photo's `src
 ```astro
 ---
 // src/components/KitImage.astro: the kit's photos through EmDash's responsive <Image>.
-import type { ImageComponentProps } from "@astronomic/ui/lib/image.ts";
+import type { ImageComponentProps } from "@astronomic-dev/ui/lib/image.ts";
 import { Image } from "emdash/ui";
 
 type Props = ImageComponentProps;
@@ -393,7 +393,7 @@ On the page, build the photo object in a `.map()` before the items. TypeScript r
 
 ```astro
 ---
-import TeamGrid from "@astronomic/ui/components/TeamGrid.astro";
+import TeamGrid from "@astronomic-dev/ui/components/TeamGrid.astro";
 import KitImage from "../components/KitImage.astro";
 
 // entries: your team entries from EmDash, each with a photo field.
@@ -414,8 +414,8 @@ The Agency theme ships one.
 
 ```astro
 ---
-import LightboxCentered from "@astronomic/ui/components/LightboxCentered.astro";
-import { lightboxAttrs } from "@astronomic/ui/lib/lightbox.ts";
+import LightboxCentered from "@astronomic-dev/ui/components/LightboxCentered.astro";
+import { lightboxAttrs } from "@astronomic-dev/ui/lib/lightbox.ts";
 import desk from "../photos/desk.jpg";
 import shelf from "../photos/shelf.jpg";
 
@@ -476,8 +476,8 @@ Put one `SearchClassic` in the layout, a `SearchButton` in the header, and `Sear
 
 ```astro
 ---
-import SearchButton from "@astronomic/ui/components/SearchButton.astro";
-import SearchClassic from "@astronomic/ui/components/SearchClassic.astro";
+import SearchButton from "@astronomic-dev/ui/components/SearchButton.astro";
+import SearchClassic from "@astronomic-dev/ui/components/SearchClassic.astro";
 ---
 <header>
 	<SearchButton main />
@@ -489,7 +489,7 @@ import SearchClassic from "@astronomic/ui/components/SearchClassic.astro";
 ```astro
 ---
 // src/pages/search.astro
-import SearchPage from "@astronomic/ui/components/SearchPage.astro";
+import SearchPage from "@astronomic-dev/ui/components/SearchPage.astro";
 ---
 <h1>Search</h1>
 <SearchPage />
@@ -515,9 +515,9 @@ A button that opens a small panel over the page: the browser's own `popover`, wi
 
 ```astro
 ---
-import Popover from "@astronomic/ui/components/Popover.astro";
-import PopoverGroup from "@astronomic/ui/components/PopoverGroup.astro";
-import PopoverOption from "@astronomic/ui/components/PopoverOption.astro";
+import Popover from "@astronomic-dev/ui/components/Popover.astro";
+import PopoverGroup from "@astronomic-dev/ui/components/PopoverGroup.astro";
+import PopoverOption from "@astronomic-dev/ui/components/PopoverOption.astro";
 ---
 
 <Popover label="Home type" summary="choices" anyText="Any type" countText="{n} types">
@@ -556,8 +556,8 @@ The listing card and the filters read one fields list. The parts never know your
 
 ```astro
 ---
-import ListingCardInset from "@astronomic/ui/components/ListingCardInset.astro";
-import { checkFields, type ListingField } from "@astronomic/ui/lib/listing.ts";
+import ListingCardInset from "@astronomic-dev/ui/components/ListingCardInset.astro";
+import { checkFields, type ListingField } from "@astronomic-dev/ui/lib/listing.ts";
 
 const fields = checkFields([
 	{ key: "price", label: "Price", labels: { buy: "Price", rent: "Rent" }, kind: "range", format: "price", period: { buy: "once", rent: "month" }, steps: { buy: [500000, 750000, 1000000], rent: [2000, 3000, 4000] }, card: false, resetOnMode: true },
@@ -673,7 +673,7 @@ Named classes: every value a component reads from a token has a name in `theme.c
 
 ## Design system pages
 
-`@astronomic/ui/system` adds four pages that show a site's design system:
+`@astronomic-dev/ui/system` adds four pages that show a site's design system:
 
 | Route | Shows |
 | --- | --- |
@@ -687,7 +687,7 @@ They exist in `astro dev`. A build adds them only with `ASTRONOMIC_SYSTEM=1`. `a
 Turn them on in `astro.config.mjs`:
 
 ```js
-import { astronomicSystem } from "@astronomic/ui/system";
+import { astronomicSystem } from "@astronomic-dev/ui/system";
 
 export default defineConfig({
 	integrations: [
@@ -735,7 +735,7 @@ export const screens: Screen[] = [
 
 ### Footer links
 
-`@astronomic/ui/system/link` exports two values, each `null` when the pages are off:
+`@astronomic-dev/ui/system/link` exports two values, each `null` when the pages are off:
 
 - `systemLink`: the start page (with `BASE_URL`).
 - `systemLinks`: every page as `{ label, href }` (Overview, Foundations, Components, Sections), for a footer column.
@@ -744,7 +744,7 @@ It is a real file that exports `null`; the integration serves the real values in
 
 ```astro
 ---
-import { systemLinks } from "@astronomic/ui/system/link";
+import { systemLinks } from "@astronomic-dev/ui/system/link";
 ---
 {systemLinks && (
 	<nav aria-label="Design system">

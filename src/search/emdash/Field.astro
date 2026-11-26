@@ -1,0 +1,13 @@
+---
+/**
+ * EmDash: the search form above a list. An inline placement: using its field opens the search plugin's dialog with the
+ * typed text (the plugin's takeover setting is not needed). With no JavaScript, or when the dialog cannot load, it is a
+ * plain form that posts to the search page.
+ */
+import type { FieldProps } from "../types";
+import RequestField from "../request/Field.astro";
+
+type Props = FieldProps;
+---
+
+<div data-search-placement data-search-open="inline" data-search-placeholder={Astro.props.strings.placeholder}><RequestField {...Astro.props} /></div>

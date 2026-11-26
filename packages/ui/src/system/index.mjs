@@ -5,7 +5,7 @@ import { normalizeRoute, systemHref } from "./paths.mjs";
 
 const ID = "virtual:astronomic-system";
 /** A real file (`null`), so theme code can import it even without this integration. */
-const LINK_SPECIFIER = "@astronomic/ui/system/link";
+const LINK_SPECIFIER = "@astronomic-dev/ui/system/link";
 const own = (path) => fileURLToPath(new URL(path, import.meta.url));
 
 /** [page under the route, file in ./pages, footer label] */
@@ -16,7 +16,7 @@ const PAGES = [
 	["sections", "sections", "Sections"],
 ];
 
-/** The code served for `@astronomic/ui/system/link`. `base` null: the pages are off. */
+/** The code served for `@astronomic-dev/ui/system/link`. `base` null: the pages are off. */
 export function linkModule(base, route) {
 	const links = base === null ? null : PAGES.map(([page, , label]) => ({ label, href: systemHref(base, route, page) }));
 	return [
@@ -35,13 +35,13 @@ export function linkModule(base, route) {
  * `screens` (optional) is a module that exports `screens`: the theme's pages,
  * shown as live previews on the start page.
  *
- * `@astronomic/ui/system/link` exports `systemLink` (the start page) and
+ * `@astronomic-dev/ui/system/link` exports `systemLink` (the start page) and
  * `systemLinks` (every page), or `null` when the pages are off. The plugin serves that value in place of
  * the file, in every build.
  */
 export function astronomicSystem(options = {}) {
 	return {
-		name: "@astronomic/ui/system",
+		name: "@astronomic-dev/ui/system",
 		hooks: {
 			"astro:config:setup": ({ command, config, injectRoute, updateConfig }) => {
 				const enabled = systemEnabled({ command });

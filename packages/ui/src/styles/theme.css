@@ -3,9 +3,9 @@
  * Use in a site's main CSS:
  *
  *   @import "tailwindcss";
- *   @import "@astronomic/ui/tokens.css";
- *   @import "@astronomic/ui/theme.css";
- *   @import "@astronomic/ui/presets/soft.css";  (optional)
+ *   @import "@astronomic-dev/ui/tokens.css";
+ *   @import "@astronomic-dev/ui/theme.css";
+ *   @import "@astronomic-dev/ui/presets/soft.css";  (optional)
  *
  * `inline` makes utilities reference the live --ui-* variables, so a preset or
  * a runtime change (the future style playground) restyles every utility.

@@ -2,7 +2,7 @@
 /**
  * Every page's frame: the meta tags (theme-core's SeoHead), the look on <html>, the skip link, the floating nav
  * (sticky, the first child of <body>; SiteNav.astro), the <main> landmark (marked for static search when the page
- * passes `index`), the footer and, on a page whose photos open large (`lightbox`), the kit's LightboxBar.
+ * passes `searchable`), the footer and, on a page whose photos open large (`lightbox`), the kit's LightboxBar.
  *
  * The look comes from getConfig(settings), read per request, never at module load: `data-look`, `data-accent`,
  * `data-collage` and `data-thumbs` (present when post thumbnails are on) on <html>, so a later CMS setting needs no
@@ -16,20 +16,19 @@
  * The nav and the footer drop links to the optional pages that are off (navLinks, src/utils/routes.ts), and name their
  * links to /now with the settings' `nowLabel` when it is set (withNowLabel).
  */
-import SearchIndex from "@astronomic/theme-core/components/SearchIndex.astro";
 import SeoHead from "@astronomic/theme-core/components/SeoHead.astro";
-import LightboxBar from "@astronomic/ui/components/LightboxBar.astro";
+import LightboxBar from "@astronomic-dev/ui/components/LightboxBar.astro";
 import type { JsonLdNode } from "@astronomic/theme-core/jsonld";
 import { currentPath, isCurrentPath } from "@astronomic/theme-core/routes";
 import { pageMeta, publicOrigin } from "@astronomic/theme-core/seo";
 import { shareImagePath } from "@astronomic/theme-core/share";
-import { plainHeading } from "@astronomic/ui/lib/emphasis.ts";
-import { modeScript } from "@astronomic/ui/lib/mode.ts";
-import { systemLinks } from "@astronomic/ui/system/link";
+import { plainHeading } from "@astronomic-dev/ui/lib/emphasis.ts";
+import { modeScript } from "@astronomic-dev/ui/lib/mode.ts";
+import { systemLinks } from "@astronomic-dev/ui/system/link";
 import { searchKind, useContent } from "~/content";
 import { safeHref } from "~/content/links";
 import { strings } from "~/theme.strings";
-import SiteFooter from "../components/SiteFooter.astro";
+import SiteFooter, { type FooterLink } from "../components/SiteFooter.astro";
 import SiteNav from "../components/SiteNav.astro";
 import hostGrotesk from "../assets/fonts/HostGrotesk-latin.woff2?url";
 import onest from "../assets/fonts/Onest-latin.woff2?url";
@@ -62,10 +61,13 @@ interface Props {
 	/** True when the page has its own share card (it is in the public page inventory); else it shares the home card. */
 	card?: boolean;
 	/**
-	 * The entry's data for static search (Pagefind): its collection, title and summary. Entry pages pass it;
-	 * structural pages (home, lists, search) do not, so they stay out of the index.
+	 * The page is one a search finds (an entry's page, /speaking, /uses): <main> is its searchable part. Structural
+	 * pages (home, lists, search) do not pass it. Which pages are in the index is src/search/static/integration.mjs's
+	 * rule (by route), so a page that does not pass it is still found unless that rule leaves it out.
 	 */
-	index?: { kind: string; title: string; summary?: string; image?: string; imageAlt?: string };
+	searchable?: boolean;
+	/** Words search finds the page by besides its text (a post's category and tags), for a static build's index. */
+	keywords?: string[];
 	/** The page's own JSON-LD nodes (paths, not URLs: the builders make them absolute), after the site's. */
 	jsonLd?: JsonLdNode | (JsonLdNode | undefined)[];
 	/**
@@ -75,12 +77,11 @@ interface Props {
 	lightbox?: boolean;
 }
 
-const { title: rawTitle, pageTitle: rawPageTitle, description, image, imageAlt, canonical, entry, noindex = false, type = "website", card = false, index: rawIndex, jsonLd, lightbox = false } = Astro.props;
-// A heading's emphasis marker (*phrase*) never reaches <title>, the meta tags or the search index: plain text only
+const { title: rawTitle, pageTitle: rawPageTitle, description, image, imageAlt, canonical, entry, noindex = false, type = "website", card = false, searchable = false, keywords = [], jsonLd, lightbox = false } = Astro.props;
+// A heading's emphasis marker (*phrase*) never reaches <title> or the meta tags: plain text only
 // (plainHeading is not a sanitizer; Astro escapes these where they are written).
 const title = plainHeading(rawTitle);
 const pageTitle = rawPageTitle ? plainHeading(rawPageTitle) : rawPageTitle;
-const index = rawIndex ? { ...rawIndex, title: plainHeading(rawIndex.title) } : undefined;
 const content = useContent(Astro);
 const { Head, BodyStart, BodyEnd } = content.hooks;
 const [settings, menu, footerMenu] = await Promise.all([siteSettings(content), content.menu("primary"), content.menu("footer")]);
@@ -91,8 +92,9 @@ const siteTitle = settings.title;
 const here = currentPath(Astro.url);
 const noIndex = noindex || !!entry?.seo?.noindex;
 const search = searchKind(content);
-// Static search indexes only the pages that pass `index` (never a noindex page). Server builds render no index markup.
-const indexed = search === "static" && !!index && !noIndex;
+// The searchable part of the page, for a static build's index (never on a noindex page). Server builds render no
+// index markup.
+const searchBody = search === "static" && searchable && !noIndex;
 const origin = publicOrigin({ site: Astro.site, url: Astro.url, output: import.meta.env.CONTENT_OUTPUT });
 const pageNodes = [jsonLd ?? []].flat().filter((n): n is JsonLdNode => !!n);
 const graph = [...siteNodes(settings, origin), ...pageNodes];
@@ -132,8 +134,8 @@ const socials = navLinks(settings.socials, config).flatMap((item) => {
 	const href = safeHref(item.href);
 	return href === undefined ? [] : [{ label: item.label, href, icon: item.icon }];
 });
-const footerLinks = linksOf(footerMenu);
-if (search) footerLinks.push({ label: strings.footer.search, href: searchHref(), current: isCurrent(searchHref()), target: undefined });
+const footerLinks: FooterLink[] = linksOf(footerMenu);
+if (search) footerLinks.push({ label: strings.footer.search, href: searchHref(), current: isCurrent(searchHref()), target: undefined, search: true });
 // The design system's pages, only while they are on (`astro dev`, or a build with ASTRONOMIC_SYSTEM=1): the start page
 // as "Design system", then the others by their own names.
 for (const [i, link] of (systemLinks ?? []).entries()) {
@@ -157,6 +159,7 @@ const fontFiles = lookFonts[config.look];
 		{fontFiles.map((href) => <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />)}
 		{/* The product always owns its meta tags. Source hooks only add to them. */}
 		<SeoHead page={page} />
+		{searchBody && keywords.length > 0 && <meta name="search:keywords" content={keywords.join(", ")} />}
 		{Head && <Head page={page} />}
 	</head>
 	<body class="v-site flex min-h-dvh flex-col">
@@ -166,10 +169,9 @@ const fontFiles = lookFonts[config.look];
 			{strings.site.skipLink}
 		</a>
 
-		<SiteNav links={linksOf(menu)} name={settings.name} role={settings.role} avatar={settings.avatar} home={here === homeHref()} />
+		<SiteNav links={linksOf(menu)} name={settings.name} role={settings.role} avatar={settings.avatar} home={here === homeHref()} search={search ? { href: searchHref(), current: isCurrent(searchHref()) } : undefined} />
 
-		<main id={mainId} tabindex="-1" class="flex-1 outline-none" data-pagefind-body={indexed ? "" : undefined}>
-			{indexed && <SearchIndex {...index} />}
+		<main id={mainId} tabindex="-1" class="flex-1 outline-none" data-search-body={searchBody ? "" : undefined}>
 			<slot />
 		</main>
 

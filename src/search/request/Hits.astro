@@ -1,0 +1,93 @@
+---
+/**
+ * The server's hits: the source searched on the server (src/pages/search.astro), and theme-core's SearchPage renders
+ * them, so they work with no JavaScript. Each hit is a text-only post row (v-post): the kind, the title as the row's
+ * link, the summary. With `head` the page's head (Head.astro) comes first and its lead shows the count; without it the
+ * count is a line of its own, for a page that puts the head elsewhere (src/search/emdash/Results.astro).
+ */
+import SearchPage from "@astronomic/theme-core/components/SearchPage.astro";
+import { toShownHit, type ShownHit } from "@astronomic/theme-core/content";
+import { plainHeading } from "@astronomic-dev/ui/lib/emphasis.ts";
+import { search } from "~/content/search";
+import { strings } from "~/theme.strings";
+import { cn } from "~/utils/cn";
+import { hoverUnderline } from "~/utils/layout";
+import { articlesHref } from "~/utils/routes";
+import type { ResultsProps } from "../types";
+import Head from "./Head.astro";
+
+interface Props extends ResultsProps {
+	head?: boolean;
+}
+const { query, hits, more, siteTitle, head = false } = Astro.props;
+const t = strings.search;
+// A title's emphasis marker never shows in a hit.
+const shown = hits.map((hit) => toShownHit({ ...hit, title: plainHeading(hit.title) }, t.kinds));
+const text = { loading: t.loading, failed: t.failed, devOnly: t.devOnly, noScript: t.noScript, count: t.count, titleFor: `${t.titleFor} — ${siteTitle}` };
+const [noneBefore, noneAfter] = t.noneFor.split("{q}");
+const link = cn("font-semibold text-accent", hoverUnderline);
+---
+
+<SearchPage
+	mode="request"
+	query={query}
+	hits={shown}
+	more={more}
+	limit={search.limit}
+	kinds={t.kinds}
+	text={text}
+	class="grid gap-8"
+	listClass="v-posts mt-2"
+>
+	{(hit: ShownHit) => (
+		<li class="v-post">
+			<div class="min-w-0">
+				{hit.kind && (
+					<p data-post-meta data-hit="kind" class="v-meta">
+						{hit.kind}
+					</p>
+				)}
+				<h2 data-post-title class="v-heading">
+					<a data-hit="href" href={hit.href}>
+						{hit.title}
+					</a>
+				</h2>
+				{hit.excerpt && (
+					<p data-post-summary data-hit="excerpt">
+						{hit.excerpt}
+					</p>
+				)}
+			</div>
+		</li>
+	)}
+	<div slot="header">{(count: string) => head && <Head count={count} />}</div>
+	<div slot="count">
+		{(count: string) => !head && <p data-count-text aria-live="polite" class="m-0 text-v-body empty:hidden">{count}</p>}
+	</div>
+	<div slot="empty" class="grid gap-3 text-v-body">
+		<p class="m-0">{t.empty}</p>
+		<p class="m-0">
+			<a href={articlesHref()} class={link}>
+				{t.articles}
+			</a>
+		</p>
+	</div>
+	<div slot="none" class="grid gap-4 text-v-body">
+		<p class="m-0 v-heading text-v-lead text-fg wrap-anywhere">
+			{noneBefore}
+			<span data-search-query>{query}</span>
+			{noneAfter}
+		</p>
+		<p class="m-0">{t.tipsHeading}</p>
+		<ul class="m-0 grid list-disc gap-1 pl-5 marker:text-muted">
+			{t.tips.map((tip) => (
+				<li>{tip}</li>
+			))}
+		</ul>
+		<p class="m-0">
+			<a href={articlesHref()} class={link}>
+				{t.articles}
+			</a>
+		</p>
+	</div>
+</SearchPage>

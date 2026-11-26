@@ -90,6 +90,7 @@ export const THEME_ROUTES = [
 	"_emdash",
 	"_image",
 	"_astro",
+	"_search",
 	"pagefind",
 ] as const;
 

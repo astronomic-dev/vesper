@@ -3084,7 +3084,7 @@
 								{
 									"_type": "span",
 									"_key": "pg-privacy-16",
-									"text": "Fonts and images",
+									"text": "Search",
 									"marks": []
 								}
 							]
@@ -3098,7 +3098,7 @@
 								{
 									"_type": "span",
 									"_key": "pg-privacy-18",
-									"text": "The fonts and images on this site are served from this site itself. No font or image service sees your visit.",
+									"text": "The search box keeps your recent searches in your own browser, so it can show them to you again.",
 									"marks": []
 								}
 							]
@@ -3112,7 +3112,7 @@
 								{
 									"_type": "span",
 									"_key": "pg-privacy-20",
-									"text": "Your rights",
+									"text": "Fonts and images",
 									"marks": []
 								}
 							]
@@ -3126,7 +3126,7 @@
 								{
 									"_type": "span",
 									"_key": "pg-privacy-22",
-									"text": "You can ask for a copy of the data I hold about you, ask me to correct it, or ask me to delete it. Write to me and I will answer within a month.",
+									"text": "The fonts and images on this site are served from this site itself. No font or image service sees your visit.",
 									"marks": []
 								}
 							]
@@ -3134,12 +3134,40 @@
 						{
 							"_type": "block",
 							"_key": "pg-privacy-25",
-							"style": "normal",
+							"style": "h2",
 							"markDefs": [],
 							"children": [
 								{
 									"_type": "span",
 									"_key": "pg-privacy-24",
+									"text": "Your rights",
+									"marks": []
+								}
+							]
+						},
+						{
+							"_type": "block",
+							"_key": "pg-privacy-27",
+							"style": "normal",
+							"markDefs": [],
+							"children": [
+								{
+									"_type": "span",
+									"_key": "pg-privacy-26",
+									"text": "You can ask for a copy of the data I hold about you, ask me to correct it, or ask me to delete it. Write to me and I will answer within a month.",
+									"marks": []
+								}
+							]
+						},
+						{
+							"_type": "block",
+							"_key": "pg-privacy-29",
+							"style": "normal",
+							"markDefs": [],
+							"children": [
+								{
+									"_type": "span",
+									"_key": "pg-privacy-28",
 									"text": "[[fill in: the email address for privacy requests, and the state privacy laws that apply to you, such as the CCPA in California]]",
 									"marks": []
 								}

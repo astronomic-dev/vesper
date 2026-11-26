@@ -1,0 +1,34 @@
+---
+/**
+ * EmDash: the search page's body. The head and the form always stay. Under them is the server's list, which works with
+ * no JavaScript; with a query, the plugin's results page draws over it once its index is loaded. If that fails, the
+ * server's list stays. The plugin's page has a search field of its own, hidden below: the form above is the one field,
+ * before and after, and each search is a page load with its own address and title.
+ */
+import SearchResults from "@astronomic-dev/search/emdash/astro/SearchResults.astro";
+import Head from "../request/Head.astro";
+import Hits from "../request/Hits.astro";
+import type { ResultsProps } from "../types";
+
+type Props = ResultsProps;
+const props = Astro.props;
+---
+
+<div class="grid gap-8">
+	<Head />
+	{
+		props.query ? (
+			<SearchResults query={props.query}>
+				<Hits {...props} />
+			</SearchResults>
+		) : (
+			<Hits {...props} />
+		)
+	}
+</div>
+
+<style is:global>
+	[data-search-results]::part(form) {
+		display: none;
+	}
+</style>

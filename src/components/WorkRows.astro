@@ -1,7 +1,8 @@
 ---
 /**
  * The jobs as rows (comp ".roles"): each with its mark, the company (a link when the job has one) over the role, and
- * the years ("2022 – Now"). The Work card and the about page's work history.
+ * the years ("2022 – Now"). The Work card and the about page's work history. The spaces between them keep the words
+ * apart in the search index.
  */
 import type { WorkRow } from "~/utils/view";
 import Mark from "./Mark.astro";
@@ -18,8 +19,8 @@ const { jobs } = Astro.props;
 		jobs.map((job) => (
 			<li>
 				<Mark logo={job.logo} initials={job.initials} tile={job.tile} />
-				<span data-role-company>{job.href ? <a href={job.href}>{job.company}</a> : job.company}</span>
-				<span data-role-name>{job.role}</span>
+				<span data-role-company>{job.href ? <a href={job.href}>{job.company}</a> : job.company}</span>{" "}
+				<span data-role-name>{job.role}</span>{" "}
 				<span data-role-years class="v-meta">
 					{job.years}
 				</span>

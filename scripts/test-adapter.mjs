@@ -10,4 +10,6 @@ import { runAdapter } from "@astronomic/theme-core/scripts/adapter.mjs";
 import { freshFixtures } from "./lib/demo-db.mjs";
 import config from "./theme-tests.mjs";
 
-await runAdapter((process.env.CONTENT_SOURCE ?? "markdown") !== "markdown" ? freshFixtures(config) : config);
+const tests = (process.env.CONTENT_SOURCE ?? "markdown") !== "markdown" ? freshFixtures(config) : config;
+// CONTENT_SAMPLE=1 says this copy still has the sample content, so each of its pages must answer. On your own content, leave it unset.
+await runAdapter({ ...tests, assertPages: (kind, h) => tests.assertPages(kind, h, { statuses: process.env.CONTENT_SAMPLE === "1" }) });

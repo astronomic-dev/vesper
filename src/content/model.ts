@@ -3,7 +3,7 @@
  * entry type and the queries pages may run.
  */
 import type { ContentImage, EntryMeta, RichText, SiteSettings, Term } from "@astronomic/content";
-import type { SignupFormOptions } from "@astronomic/ui/components/SignupForm.astro";
+import type { SignupFormOptions } from "@astronomic-dev/ui/components/SignupForm.astro";
 // Types only: plain Node unit tests do not load it.
 import type { ConfigSettings } from "../utils/config";
 

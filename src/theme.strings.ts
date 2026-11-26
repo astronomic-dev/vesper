@@ -14,6 +14,8 @@ export const strings = {
 		menuTitle: "Menu",
 		/** The first link on every page, for keyboard users. */
 		skipLink: "Skip to content",
+		/** The search button: the bar's icon (its accessible name) and the phone menu's labeled button. */
+		search: "Search",
 		/** The light and dark switch in the bar, an icon (its accessible name; pressed: dark mode on). */
 		darkMode: "Dark mode",
 		/** The same switch in the phone menu, a labeled button (pressed: dark mode on). */
@@ -87,6 +89,29 @@ export const strings = {
 		home: "Back to the home page",
 		/** The small label over each result (and a share card's label), per collection. */
 		kinds: { posts: "Article", projects: "Project", pages: "Page" } as Record<string, string>,
+		/** The kinds' names in the search dialog: a group's heading and its tab. */
+		groups: { posts: "Articles", projects: "Projects", pages: "Pages" },
+		/** The search dialog's words. `{query}` is the query, `{count}` the number of results. */
+		dialog: {
+			/** The dialog's accessible name, and its box's placeholder. */
+			dialogLabel: "Search",
+			placeholder: "Search articles, projects and pages",
+			close: "Close",
+			allTypes: "All",
+			typesLabel: "Content types",
+			seeAll: "See all results",
+			loading: "Loading…",
+			unavailable: "Search could not load.",
+			retry: "Try again",
+			browse: "Browse",
+			noResults: "Nothing matches “{query}”.",
+			searchAllTypes: "Search everything",
+			recent: "Recent searches",
+			/** The count screen readers hear. */
+			results: { zero: "No results", one: "1 result", other: "{count} results" },
+			/** Beside the keys in the dialog's last row. */
+			keys: { move: "to move", open: "to open", close: "to close" },
+		},
 	},
 	newsletter: {
 		heading: "Get new posts by email",

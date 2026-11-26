@@ -1,0 +1,14 @@
+---
+/**
+ * Static builds: the link that opens the Astronomic Search dialog (SearchLink also prints the dialog's boot script).
+ * `main`: the shortcut's focus goes back to it. Set on one that always shows (the footer's), as a page holds several and
+ * the first main one wins.
+ */
+import SearchLink from "@astronomic-dev/search/astro/SearchLink.astro";
+import type { TriggerProps } from "../types";
+
+type Props = TriggerProps;
+const { href, current, main, class: className, ...rest } = Astro.props;
+---
+
+<SearchLink main={main} href={href} class={className} aria-current={current ? "page" : undefined} {...rest}><slot /></SearchLink>

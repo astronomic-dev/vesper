@@ -12,9 +12,11 @@
  *     --ui-accent-hover-amount says), at 4.5:1
  *   - the focus ring (the accent, 2px) on every surface: the ground, the cards, the second surface, and the look's
  *     photo paper (Field notes' print, Trail map's mat), at 3:1
+ *
+ * searchChecks() runs the search dialog's pairs (src/styles/search.css) the same way, its box's edge at 3:1.
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { contrast, over } from "@astronomic/ui/system/contrast";
+import { contrast, over } from "@astronomic-dev/ui/system/contrast";
 import { DARK_MEDIA, hex, propsOf, readRules } from "./css.mjs";
 
 export const TEXT = 4.5;
@@ -108,6 +110,58 @@ export function skinChecks() {
 				check(`${where}: the button's text on the accent`, fg, fill, TEXT);
 				check(`${where}: the button's text on the accent (hover)`, fg, over(fill, hoverShare, hex(t["--ui-fg"])), TEXT);
 				for (const [name, ground] of [...grounds, ...paperOf(t).map((p) => ["photo paper", p])]) check(`${where}: the focus ring on the ${name}`, fill, hex(ground), RING);
+			}
+		}
+	}
+	return checks;
+}
+
+/** The search dialog's tokens as written (src/styles/search.css). */
+export const searchTokens = () => propsOf(readRules(at("search.css")), ":root");
+
+/** A color as `[r, g, b]`: a #rrggbb, a var() of `tokens`, or color-mix(in srgb, <color> <n>%, <color>) of two. */
+function rgb(value, tokens) {
+	const name = /^var\((--[\w-]+)\)$/.exec(value ?? "")?.[1];
+	if (name) return rgb(tokens[name], tokens);
+	const mix = /^color-mix\(in srgb, (.+) ([\d.]+)%, (.+)\)$/.exec(value ?? "");
+	if (mix) return over(rgb(mix[1], tokens), Number(mix[2]) / 100, rgb(mix[3], tokens));
+	const color = hex(value);
+	if (!color) throw new Error(`not a color the search checks can read: ${value}`);
+	return color;
+}
+
+/**
+ * The search dialog's text (and the results page's) on every ground it has, in every look, accent and mode. The grounds
+ * the package makes from the tokens, as packages/search's styles.ts does: the active result (the accent 10% on the
+ * dialog) and the box (the text 5% on it); a count beside a label is its text at 72%.
+ */
+export function searchChecks() {
+	const preset = propsOf(readRules(at("vesper.css")), ":root");
+	const checks = [];
+	for (const accent of readAccents()) {
+		for (const look of LOOK_IDS) {
+			const own = lookTokens(look);
+			for (const mode of ["light", "dark"]) {
+				const tokens = { ...preset, ...own[mode], "--ui-accent": accent[mode], "--ui-accent-fg": mode === "light" ? accent.fgLight : accent.fgDark, ...searchTokens() };
+				const c = (name) => rgb(tokens[name], tokens);
+				const [bg, fg, muted, fill, page] = ["--search-bg", "--search-fg", "--search-muted", "--search-accent", "--ui-bg"].map(c);
+				const check = (name, a, b, min = TEXT) => checks.push({ name: `search, ${accent.id} in ${look} ${mode}: ${name}`, value: contrast(a, b), min });
+				const grounds = { "the dialog": bg, "the active result": over(fill, 0.1, bg), "the box": over(fg, 0.05, bg), "the results page": page, "its band": c("--search-band"), "its picked tab": c("--search-selected") };
+				for (const [where, ground] of Object.entries(grounds)) {
+					check(`text on ${where}`, fg, ground);
+					check(`muted text on ${where}`, muted, ground);
+				}
+				check("a count on a tab", over(fg, 0.72, bg), bg);
+				check("a count on the box's fill", over(fg, 0.72, grounds["the box"]), grounds["the box"]);
+				check("the picked tab", bg, fg);
+				check("a count on the picked tab", over(bg, 0.72, fg), fg);
+				check("a link", fill, bg);
+				check("text on the accent", c("--search-accent-fg"), fill);
+				check("a matched word", c("--search-mark-fg"), c("--search-mark-bg"));
+				check("the box's edge on the dialog", c("--v-search-edge"), bg, RING);
+				check("the box's edge on its fill", c("--v-search-edge"), grounds["the box"], RING);
+				check("the focus ring", c("--search-focus"), bg, RING);
+				check("the focus ring on the active result", c("--search-focus"), grounds["the active result"], RING);
 			}
 		}
 	}

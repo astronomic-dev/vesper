@@ -12,7 +12,7 @@
  * Plain Node loads this file (scripts/units/sections.test.mjs): it imports only src/utils.
  */
 import type { Config, OptionalPage } from "./config";
-import { isReservedSlug, OWN_ROUTE_PAGES } from "./routes";
+import { isReservedSlug, OWN_ROUTE_PAGES } from "./routes.ts";
 
 /** The sections at the root with their own page: Speaking, Uses and Now (each a page switch). */
 export const SECTION_PAGES = ["speaking", "uses", "now"] as const satisfies readonly OptionalPage[];

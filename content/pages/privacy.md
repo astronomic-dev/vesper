@@ -19,6 +19,10 @@ My host keeps short server logs (your IP address, the page you asked for and the
 
 [[fill in: your host, and how long its logs are kept]]
 
+## Search
+
+The search box keeps your recent searches in your own browser, so it can show them to you again.
+
 ## Fonts and images
 
 The fonts and images on this site are served from this site itself. No font or image service sees your visit.

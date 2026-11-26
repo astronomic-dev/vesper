@@ -31,7 +31,15 @@ export function leaves(link: { getAttribute(name: string): string | null }): boo
 /** The marker on <html> for a page that has a scrollbar while a modal is open: the scroll lock keeps its gutter. */
 export const OVERFLOW = "data-modal-overflow";
 
-type Root = { scrollHeight: number; clientHeight: number; toggleAttribute(name: string, force: boolean): unknown };
+/** A kit modal open on the page: every kit modal marks its <dialog> with data-modal. */
+export const OPEN_MODAL = "dialog[data-modal][open]";
+
+type Root = { scrollHeight: number; clientHeight: number; toggleAttribute(name: string, force: boolean): unknown; querySelector(selector: string): unknown };
+
+/** Drops the gutter mark, unless a kit modal is still open (a search closing over an open drawer keeps it). */
+export function unmark(root: Root): void {
+	if (!root.querySelector(OPEN_MODAL)) root.toggleAttribute(OVERFLOW, false);
+}
 type Dialog = {
 	open: boolean;
 	showModal(): void;
@@ -45,12 +53,12 @@ const marked = new WeakMap<Dialog, Root>();
  * Opens a modal dialog: first marks `root` (<html>) with data-modal-overflow when the page has a scrollbar, so the
  * scroll lock keeps the scrollbar's gutter and the page does not shift sideways (theme.css), then showModal(). The
  * mark goes on each close event of the dialog, however it closes, unless the dialog is open again by then (a late
- * event). A dialog already open is left alone.
+ * event) or another kit modal is still open (see unmark). A dialog already open is left alone.
  */
 export function openModal(dialog: Dialog, root: Root): void {
 	if (dialog.open) return;
 	root.toggleAttribute(OVERFLOW, root.scrollHeight > root.clientHeight);
 	dialog.showModal();
-	if (!marked.has(dialog)) dialog.addEventListener("close", () => dialog.open || marked.get(dialog)!.toggleAttribute(OVERFLOW, false));
+	if (!marked.has(dialog)) dialog.addEventListener("close", () => dialog.open || unmark(marked.get(dialog)!));
 	marked.set(dialog, root);
 }

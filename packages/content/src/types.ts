@@ -87,7 +87,9 @@ export type EntryOf<S> = S extends { entry: infer E } ? E : never;
 export type QueryOf<S> = S extends { query: infer Q } ? Q : {};
 
 export type PageQuery = {
+	/** The most entries to return. Omitted: every entry from `offset` on. 0: no entries, with `hasMore` still set. */
 	limit?: number;
+	/** How many matching entries to skip. Default 0. */
 	offset?: number;
 	/**
 	 * Each list entry's `seo` carries `noindex` (for the sitemap, the feed and the search index). Off by default:
@@ -96,7 +98,10 @@ export type PageQuery = {
 	seo?: boolean;
 };
 
-/** One page of results. `hasMore` is always set; `total` only if the source knows it cheaply. */
+/**
+ * One page of results. `hasMore` is always set: whether a matching entry exists past this page (so with `limit: 0`,
+ * at or past `offset`; without a limit, never). `total` is every match, and set only if the source knows it cheaply.
+ */
 export type ListResult<T> = { items: T[]; hasMore: boolean; total?: number };
 
 /**

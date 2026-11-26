@@ -33,7 +33,7 @@
  * A `<Fragment slot="count">` wrapper does not pass the text.
  * `text` strings take `{n}` and `{q}`.
  */
-import { cn } from "@astronomic/ui/lib/cn.ts";
+import { cn } from "@astronomic-dev/ui/lib/cn.ts";
 import type { ShownHit } from "../content/search.ts";
 import { fill, shown } from "../search-client.ts";
 
@@ -88,7 +88,7 @@ const config = mode === "static" ? JSON.stringify({ limit, kinds, text, keepTrai
 	{count === undefined ? <p data-count-text aria-live="polite">{countText}</p> : count && <Fragment set:html={count} />}
 	{/* Its own live region (always rendered), so "no results" is announced when the block shows. */}
 	<div data-search-announce aria-live="polite"><div data-search-block="none" hidden={state !== "none"}><slot name="none" /></div></div>
-	<ul data-search-results role="list" class={cn(listClass)} hidden={state !== "results"}>
+	<ul data-search-page-list role="list" class={cn(listClass)} hidden={state !== "results"}>
 		{items.map((item) => <Fragment set:html={item} />)}
 	</ul>
 	{
@@ -115,7 +115,7 @@ const config = mode === "static" ? JSON.stringify({ limit, kinds, text, keepTrai
 		show(root.querySelector('[data-search-block="empty"]'), state === "empty");
 		show(root.querySelector('[data-search-block="none"]'), state === "none");
 		show(root.querySelector("[data-search-status]"), state === "loading" || state === "failed");
-		show(root.querySelector("[data-search-results]"), state === "results");
+		show(root.querySelector("[data-search-page-list]"), state === "results");
 	}
 
 	function setCount(root: HTMLElement, value: string) {
@@ -148,7 +148,7 @@ const config = mode === "static" ? JSON.stringify({ limit, kinds, text, keepTrai
 		}
 
 		const template = root.querySelector<HTMLTemplateElement>("template[data-search-hit]");
-		const list = root.querySelector("[data-search-results]");
+		const list = root.querySelector("[data-search-page-list]");
 		if (!template || !list) return;
 		list.replaceChildren(
 			...hits.map((hit) => {

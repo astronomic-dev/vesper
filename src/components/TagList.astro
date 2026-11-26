@@ -1,5 +1,5 @@
 ---
-/** A post's tags (comp ".tags"): pills linking to each tag's page; each a 44px target. */
+/** A post's tags (comp ".tags"): pills linking to each tag's page; each a 44px target. Search has them as the post's keywords, not as text. */
 import { strings } from "~/theme.strings";
 import { tagHref } from "~/utils/routes";
 
@@ -12,7 +12,7 @@ const { tags } = Astro.props;
 
 {
 	tags.length > 0 && (
-		<ul role="list" aria-label={strings.article.tags} class="v-tags">
+		<ul role="list" aria-label={strings.article.tags} class="v-tags" data-search-ignore>
 			{tags.map((tag) => (
 				<li>
 					<a href={tagHref(tag.slug)}>{tag.label}</a>

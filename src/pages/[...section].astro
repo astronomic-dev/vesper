@@ -23,11 +23,11 @@
  */
 import { profilePageNode, siteIds, webPageNode } from "@astronomic/theme-core/jsonld";
 import { notFound } from "@astronomic/theme-core/routes";
-import Button from "@astronomic/ui/components/Button.astro";
-import Media from "@astronomic/ui/components/Media.astro";
-import Prose from "@astronomic/ui/components/Prose.astro";
-import { formatDate } from "@astronomic/ui/lib/date.ts";
-import { plainHeading } from "@astronomic/ui/lib/emphasis.ts";
+import Button from "@astronomic-dev/ui/components/Button.astro";
+import Media from "@astronomic-dev/ui/components/Media.astro";
+import Prose from "@astronomic-dev/ui/components/Prose.astro";
+import { formatDate } from "@astronomic-dev/ui/lib/date.ts";
+import { plainHeading } from "@astronomic-dev/ui/lib/emphasis.ts";
 import EmptyNote from "~/components/EmptyNote.astro";
 import Icon from "~/components/Icon.astro";
 import JumpLinks from "~/components/JumpLinks.astro";
@@ -42,7 +42,6 @@ import UsesList from "~/components/UsesList.astro";
 import WorkRows from "~/components/WorkRows.astro";
 import { useContent } from "~/content";
 import { safeHref } from "~/content/links";
-import { searchSummary } from "~/content/search";
 import Base from "~/layouts/Base.astro";
 import { strings } from "~/theme.strings";
 import { cn } from "~/utils/cn";
@@ -107,7 +106,7 @@ const entryMeta = page
 			imageAlt: page.seo?.image ? undefined : shownPhoto?.alt,
 			canonical: page.seo?.canonical,
 			entry: page,
-			index: { kind: "pages", title: page.title, summary: searchSummary("pages", page) },
+			searchable: true,
 		}
 	: undefined;
 /** /speaking's and /uses' head: the pages entry's words when there is one, else the theme's words. */
@@ -120,7 +119,7 @@ const listMeta =
 		image: page?.seo?.image,
 		canonical: page?.seo?.canonical,
 		entry: page,
-		index: { kind: "pages", title: head.title, summary: head.lead },
+		searchable: true,
 	};
 /** The page's JSON-LD: the about page is the owner's profile; any other page is a WebPage with the title it shows. */
 const origin = siteOrigin(Astro);
@@ -154,7 +153,7 @@ const jsonLd =
 				<div class={wrap}>
 					<PageHead title={page.title} lead={page.summary}>
 						{stamp && (
-							<p class="v-stamp v-meta">
+							<p class="v-stamp v-meta" data-search-ignore>
 								<Icon name="ui/pin" />
 								{stamp}
 							</p>

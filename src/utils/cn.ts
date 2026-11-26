@@ -1,5 +1,5 @@
 /**
- * The theme's `cn`: the kit's (@astronomic/ui/lib/cn.ts) with the theme's own Tailwind names taught to
+ * The theme's `cn`: the kit's (@astronomic-dev/ui/lib/cn.ts) with the theme's own Tailwind names taught to
  * tailwind-merge too (src/styles/vesper.css `@theme inline`). Without them, tailwind-merge reads an unknown
  * `text-v-brand` as a color and drops a `text-inherit` beside it. The kit's names below are a copy of its list;
  * scripts/units/cn.test.mjs fails when the kit adds a name this copy lacks.
@@ -15,7 +15,7 @@ export function cx(...classes: ClassValue[]): string {
 	return classes.filter(Boolean).join(" ");
 }
 
-// The kit's names (lib/cn.ts in @astronomic/ui, with its notes), then the theme's (marked "Vesper").
+// The kit's names (lib/cn.ts in @astronomic-dev/ui, with its notes), then the theme's (marked "Vesper").
 const twMerge = extendTailwindMerge({
 	extend: {
 		theme: {

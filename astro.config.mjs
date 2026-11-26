@@ -3,12 +3,16 @@ import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "astro/config";
 import { contentSource } from "@astronomic/content/astro";
-import { contentTests, privateResponses, staticSearch } from "@astronomic/theme-core/astro";
-import { astronomicSystem } from "@astronomic/ui/system";
+import { contentTests, privateResponses } from "@astronomic/theme-core/astro";
+import { astronomicSystem } from "@astronomic-dev/ui/system";
+import { searchSetup } from "./src/search/setup.mjs";
 
 // The content source: the one switch. A name of a source in src/content/sources/
 // ("markdown", "emdash", or your own). CONTENT_SOURCE overrides it (used by tests).
 const content = await contentSource(process.env.CONTENT_SOURCE ?? "markdown", import.meta.url);
+// The site search for that source (src/search/): the parts its pages import as `astronomic:search/*`, and a static
+// build's index.
+const search = await searchSetup(content);
 
 /**
  * Checks src/theme.config.ts when the config loads (src/utils/config.ts, checkConfigFile), so `pnpm check`, `pnpm dev`
@@ -58,9 +62,9 @@ export default defineConfig({
 		// conformance check, and a normalized snapshot of every collection that
 		// `pnpm test:parity` compares across sources.
 		contentTests({ conformance: "./src/content/conformance.route.ts", snapshot: "./src/content/snapshot.route.ts" }),
-		// Static builds: Pagefind indexes the entry pages after the build (dist/pagefind/), for /search.
-		// Server builds keep the source's own search and skip this.
-		staticSearch(),
+		// Static builds: Astronomic Search indexes the built pages (dist/_search/). EmDash builds its index itself
+		// (src/content/sources/emdash.setup.mjs).
+		...search.integrations,
 		// Server builds: edit-mode and preview-token requests get private no-store on every response (pages, the
 		// feed, the sitemap, cards), so an editor's view is never stored by a shared cache.
 		privateResponses(),
@@ -71,7 +75,7 @@ export default defineConfig({
 			// `pnpm test:no-emdash` fails the build on any EmDash / @astrojs/node import.
 			...(process.env.CONTENT_FORBID ? [(await import("@astronomic/theme-core/scripts/forbid.mjs")).forbidPlugin()] : []),
 		],
-		resolve: { alias: content.alias },
+		resolve: { alias: { ...content.alias, ...search.alias } },
 		// Test only: VESPER_CONFIG overrides the look choices for one build (src/utils/config.ts), VESPER_SETTINGS the
 		// settings (src/utils/setup.ts), VESPER_PER_PAGE a smaller page size (src/utils/routes.ts). Empty by default.
 		define: {

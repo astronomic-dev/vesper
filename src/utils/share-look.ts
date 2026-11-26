@@ -8,7 +8,7 @@
  * place of the bar: a small accent square with one cut corner, the photos' shape.
  */
 import { HEIGHT, titleSize, WIDTH, type CardNode, type ShareCard, type ShareLook } from "@astronomic/theme-core/share";
-import { plainHeading } from "@astronomic/ui/lib/emphasis.ts";
+import { plainHeading } from "@astronomic-dev/ui/lib/emphasis.ts";
 import type { PublicPage } from "./public-pages";
 
 /** src/styles/looks/clear.css's light :root: --ui-bg, --ui-fg, --ui-muted (the unit test holds them together). */

@@ -5,9 +5,9 @@
  * and the pages. The posts are cards in two columns over the container's width (`articleList: "grid"`, the default),
  * or rows in the reading width (`"rows"`); the head, the search form and the filter keep the reading width either way.
  */
-import SearchForm from "@astronomic/theme-core/components/SearchForm.astro";
-import FilterNav, { type FilterItem } from "@astronomic/ui/components/FilterNav.astro";
-import Pagination from "@astronomic/ui/components/Pagination.astro";
+import FilterNav, { type FilterItem } from "@astronomic-dev/ui/components/FilterNav.astro";
+import Pagination from "@astronomic-dev/ui/components/Pagination.astro";
+import SearchField from "astronomic:search/Field.astro";
 import { strings } from "~/theme.strings";
 import { cn } from "~/utils/cn";
 import { wrap } from "~/utils/layout";
@@ -41,7 +41,7 @@ const t = strings.articles;
 	<div class={cn("v-page-body grid gap-8", layout === "rows" && "v-list")}>
 		{(search || filters.length > 1) && (
 			<div class="v-list grid gap-5">
-				{search && <SearchForm variant="row" action={searchHref()} strings={t.search} />}
+				{search && <SearchField action={searchHref()} strings={t.search} />}
 				{filters.length > 1 && <FilterNav items={filters} label={t.filter} class="v-filter" />}
 			</div>
 		)}

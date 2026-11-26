@@ -27,7 +27,7 @@ The package ships as source (`.ts`, `.astro`, `.mjs`). There is no build step. V
 
 - No EmDash. Nothing in the package imports `emdash`, `@emdash-cms/*` or `@astrojs/node`. `emdash` is an optional peer, so a Markdown-only project installs neither.
 - No theme files. Nothing imports `~/…`. Parts take data, strings, renderers and look classes as props.
-- No look. No theme tokens, colours or fonts. Kit role classes (`border-border`, `text-muted`) and kit helpers (`cn`, `buttonClasses`) are allowed, as in `@astronomic/ui`.
+- No look. No theme tokens, colours or fonts. Kit role classes (`border-border`, `text-muted`) and kit helpers (`cn`, `buttonClasses`) are allowed, as in `@astronomic-dev/ui`.
 - The runners in `scripts/` are plain `.mjs` and import no `.ts` file, so they run under Node from any install.
 
 ## Use it in a theme

@@ -25,7 +25,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { contrast, contrastOnImage, over, SCRIM_LAYERS, scrimBackdrops } from "@astronomic/ui/system/contrast";
+import { contrast, contrastOnImage, over, SCRIM_LAYERS, scrimBackdrops } from "@astronomic-dev/ui/system/contrast";
 
 const WHITE = [255, 255, 255];
 const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
@@ -80,7 +80,7 @@ export function runSkins(config) {
 
 	if (config.scrim) {
 		// The shares of scrim-fg in the kit's on-image Buttons (buttonOnImage), read from its source so this tracks it.
-		const buttonTs = readFileSync(fileURLToPath(new URL("../lib/button.ts", import.meta.resolve("@astronomic/ui/system/contrast"))), "utf8");
+		const buttonTs = readFileSync(fileURLToPath(new URL("../lib/button.ts", import.meta.resolve("@astronomic-dev/ui/system/contrast"))), "utf8");
 		const onImageBlock = /export const buttonOnImage[^{]*\{([\s\S]*?)\n\};/.exec(buttonTs)?.[1] ?? "";
 		const shareIn = (variant, prefix) => {
 			const line = new RegExp(`\\b${variant}:\\s*"([^"]*)"`).exec(onImageBlock)?.[1] ?? "";

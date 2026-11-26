@@ -26,6 +26,8 @@
  * `hostedDemo`: builds and servers run as the hosted demo's copy, in any copy. A theme's `hostedDemo()` looks for the
  * `src/demo-brand` folder, which a released copy does not have. There a static build at no address is a demo and a
  * production server is live, so the sources differ by design; a test that compares them needs both to be one thing.
+ * So only such a test asks for it (a theme's `test-parity.mjs`). Every other runner builds the copy as it is: the repo's
+ * own theme as the hosted demo (it has the folder), a buyer's copy as that buyer's site. `runAdapter` refuses the option.
  * When the folder is missing, the harness makes an empty one for the run and removes it at the end, on an error or
  * Ctrl-C too. A run stopped hard can leave it: delete an empty `src/demo-brand`, or that copy's site counts as a demo.
  * No setting or environment variable does this, so nothing in a site's own code or its `.env` can turn it on.
@@ -37,6 +39,12 @@ import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+
+/** Loaded into a build's server: it says on this file descriptor which port the process listens on. */
+const SERVE_HOOK = new URL("./serve-hook.mjs", import.meta.url).href;
+const SERVE_HOOK_FD = 3;
+/** How long a build's server has to listen. */
+const SERVE_TIMEOUT = 30_000;
 
 // One registry for every harness in the process, so one signal handler stops them all.
 const children = new Set();
@@ -118,12 +126,13 @@ export function portInUse(port) {
  * - `port`: where builds are served. Default CONTENT_TEST_PORT, else 4399.
  * - `paritySkip`: what `pageText` leaves out of <main> (see `pageText`). Default `data-parity-skip`.
  * - `fixtures`: a folder (URL or path) of test-only content (see the top of this file). Skipped when it does not exist.
- * - `hostedDemo`: build and serve as the hosted demo's copy, in any copy (see the top of this file).
+ * - `hostedDemo`: build and serve as the hosted demo's copy, in any copy: for a run that compares sources (see the top of this file).
  */
 export function createHarness({ root, port = Number(process.env.CONTENT_TEST_PORT ?? 4399), paritySkip = "data-parity-skip", fixtures, hostedDemo = false }) {
 	setSignals();
 	const cwd = root;
 	const base = `http://127.0.0.1:${port}`;
+	const portTaken = `Port ${port} is in use. Stop that server or set CONTENT_TEST_PORT.`;
 	const fixtureDir = fixtures ? (fixtures instanceof URL ? fileURLToPath(fixtures) : fixtures) : undefined;
 	const useFixtures = !!fixtureDir && existsSync(fixtureDir);
 	/** Makes the empty demo marker if this copy has no marker. Each build and server asks, as `cleanup()` removes it. */
@@ -299,7 +308,7 @@ export function createHarness({ root, port = Number(process.env.CONTENT_TEST_POR
 	};
 
 	/** Minimal static file server for a static build (directory-format HTML); images, scripts, styles and fonts carry their content type. */
-	function serveStatic(dir) {
+	async function serveStatic(dir) {
 		const read = (p) => {
 			const file = normalize(join(dir, p));
 			return file.startsWith(dir) && existsSync(file) ? readFileSync(file) : null;
@@ -311,30 +320,65 @@ export function createHarness({ root, port = Number(process.env.CONTENT_TEST_POR
 			if (file) res.writeHead(200, type ? { "Content-Type": type } : {}).end(file);
 			else res.writeHead(404).end(read("404.html"));
 		});
-		server.listen(port, "127.0.0.1");
+		await new Promise((resolve, reject) => {
+			server.once("error", (error) => reject(error.code === "EADDRINUSE" ? new Error(portTaken) : error));
+			server.listen(port, "127.0.0.1", resolve);
+		});
 		servers.add(server);
 		return { kind: "static", stop: () => (server.close(), servers.delete(server)) };
 	}
 
-	/** Serve a build: the Node server if it has one, else its static files. */
-	async function serve(outDir) {
-		if (await portInUse(port)) throw new Error(`Port ${port} is in use. Stop that server or set CONTENT_TEST_PORT.`);
+	/**
+	 * Resolves when the server process listens on the port, as it says on its pipe (serve-hook.mjs); rejects when it ends
+	 * first. An answer on the port is not proof: another process can take the port before a slow server gets to it, and
+	 * would answer in its place.
+	 */
+	const listening = (child) =>
+		new Promise((resolve, reject) => {
+			let said = "";
+			child.stdio[SERVE_HOOK_FD].on("data", (chunk) => {
+				said += chunk;
+				if (said.split("\n").slice(0, -1).includes(String(port))) resolve();
+			});
+			child.once("error", reject);
+			child.once("exit", (code, signal) =>
+				reject(new Error(`The server of the build stopped before it listened on port ${port} (${signal ?? `exit ${code}`}). Set CONTENT_TEST_PORT if another process took the port.`)),
+			);
+		});
+
+	/**
+	 * Serve a build: the Node server if it has one, else its static files. The answers come from that server only.
+	 * A Node server's standard output is dropped, unless `stdout` says where it goes (as in `stdio`); its errors go to
+	 * this process's. `env` is set over this process's environment and the fixtures'.
+	 */
+	async function serve(outDir, { stdout = "ignore", env = {} } = {}) {
+		if (await portInUse(port)) throw new Error(portTaken);
 		placeMarker();
 		const entry = join(outDir, "server/entry.mjs");
 		let handle;
 		if (existsSync(entry)) {
 			// EmDash reads data.db from the working directory, so run from the project root.
-			const child = spawn(process.execPath, [entry], {
+			const child = spawn(process.execPath, ["--import", SERVE_HOOK, entry], {
 				cwd,
 				// The checks read one fixed address. A server with no SITE_URL would use each request's instead (publicOrigin).
-				env: { SITE_URL: builtSites.get(outDir) || "https://example.com", ...process.env, ...fixtureEnv(), PORT: String(port), HOST: "127.0.0.1" },
-				stdio: ["ignore", "ignore", "inherit"],
+				env: { SITE_URL: builtSites.get(outDir) || "https://example.com", ...process.env, ...fixtureEnv(), ...env, PORT: String(port), HOST: "127.0.0.1" },
+				stdio: ["ignore", stdout, "inherit", "pipe"],
 			});
 			children.add(child);
 			child.on("exit", () => children.delete(child));
 			handle = { kind: "server", stop: () => (child.kill("SIGKILL"), children.delete(child)) };
+			let timer;
+			const late = new Promise((_, reject) => (timer = setTimeout(reject, SERVE_TIMEOUT, new Error(`Server did not start on ${base}`))));
+			try {
+				await Promise.race([listening(child), late]);
+			} catch (error) {
+				handle.stop();
+				throw error;
+			} finally {
+				clearTimeout(timer);
+			}
 		} else {
-			handle = serveStatic(outDir);
+			handle = await serveStatic(outDir);
 		}
 		for (let i = 0; i < 120; i++) {
 			try {
@@ -348,23 +392,40 @@ export function createHarness({ root, port = Number(process.env.CONTENT_TEST_POR
 		throw new Error(`Server did not start on ${base}`);
 	}
 
-	/** Fetch /_conformance.json. Returns { adapter, problems }; a fetch/parse failure is reported as a problem. */
-	async function conformance() {
+	/**
+	 * What is wrong with the source an answer names, or null: the run asked for `source`. A site whose config stopped
+	 * reading CONTENT_SOURCE builds well and passes every check, on the wrong content.
+	 */
+	const wrongSource = (what, source, adapter) =>
+		source && adapter !== source ? `The built site's ${what} names the source "${adapter}", not "${source}": astro.config.mjs must read CONTENT_SOURCE, and the adapter's name must be its source's.` : null;
+
+	/**
+	 * Fetch /_conformance.json. Returns { adapter, problems }; a fetch/parse failure is reported as a problem. With
+	 * `source`, the site must name that source, else it is a problem too.
+	 */
+	async function conformance(source) {
 		try {
 			const res = await fetch(`${base}/_conformance.json`);
 			if (!res.ok) return { adapter: "?", problems: [`/_conformance.json returned ${res.status}`] };
-			return await res.json();
+			const result = await res.json();
+			const wrong = wrongSource("content check", source, result.adapter);
+			return wrong ? { ...result, problems: [wrong, ...result.problems] } : result;
 		} catch (err) {
 			return { adapter: "?", problems: [`/_conformance.json failed: ${err.message}`] };
 		}
 	}
 
-	/** Fetch /_snapshot.json: every collection's mapped data, normalized. A failure is returned as `{ error }`. */
-	async function snapshot() {
+	/**
+	 * Fetch /_snapshot.json: every collection's mapped data, normalized. A failure is returned as `{ error }`. With
+	 * `source`, a snapshot that names another source has an `error` too.
+	 */
+	async function snapshot(source) {
 		try {
 			const res = await fetch(`${base}/_snapshot.json`);
 			if (!res.ok) return { error: `/_snapshot.json returned ${res.status}` };
-			return await res.json();
+			const result = await res.json();
+			const wrong = "adapter" in result ? wrongSource("snapshot", source, result.adapter) : null;
+			return wrong ? { ...result, error: wrong } : result;
 		} catch (err) {
 			return { error: `/_snapshot.json failed: ${err.message}` };
 		}
@@ -551,7 +612,7 @@ export function headProblems(path, html) {
 
 /**
  * Problems with the light and dark switch on one page (the kit's ModeToggle and its no-flash script, modeScript in
- * @astronomic/ui/lib/mode.ts). The script is inline (a classic script, so it runs at once) in <head>, before every
+ * @astronomic-dev/ui/lib/mode.ts). The script is inline (a classic script, so it runs at once) in <head>, before every
  * stylesheet, so a saved choice is on <html> before the first paint. The page has `count` switches in the site nav's
  * bar and `inMenu` in its menu panel (the <dialog>: one shown on a narrow phone, in place of the bar's), each a
  * `type="button"` named `label` (its aria-label, or with none its visible text; with both, the aria-label starts with

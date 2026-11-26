@@ -57,12 +57,13 @@ Builds one model collection from one EmDash collection.
 | `taxonomies` | Taxonomies `h.terms()` reads. EmDash 1.1 folds terms into list queries; if it did not, the adapter loads each taxonomy in one batched query. |
 | `mediaBaseUrl` | Must match `storage.baseUrl`. Default `/_emdash/api/media/file`. |
 | `references` | Reference field slugs to load, e.g. `["client"]`. `h.reference()` and `h.references()` read them. |
+| `needsReferences(q)` | Whether a list for `q` loads `references`. Default: always. See "References". |
 
 Behavior:
 
-- `list(q)` pages with `limit` and `offset`. `hasMore` is always a boolean (`false` without a `limit`).
+- `list(q)` pages with `limit` and `offset`. `hasMore` is always a boolean (`false` without a `limit`). `limit: 0` returns no entries, and `hasMore` says whether one exists at or past `offset`.
 - `get(slug)` returns `undefined` only when the entry does not exist.
-- `slugs(q)` and `count(q)` run one unpaged query (EmDash has no slug-only or count query). With `filter` or `sort`, they map every match first, the same way as `list`, so `slugs()` comes back in the `sort` order.
+- `slugs(q)` and `count(q)` run one unpaged query (EmDash has no slug-only or count query), so they ignore `limit` and `offset`. With `filter` or `sort`, they map every match first, the same way as `list`, so `slugs()` comes back in the `sort` order.
 - Every call forwards EmDash's cache hint to Astro's route cache.
 - When EmDash returns an error, the call throws. An outage never looks like empty content or a 404.
 
@@ -79,6 +80,7 @@ The helpers `h` passed to `map`:
 | `h.seo()` | SEO panel values (the panel's own bare title, unset when the panel has none, as Markdown gives it, so the layout adds ` — Site`; description, image, canonical). Only in `get` on a request; otherwise `undefined` |
 | `h.reference(field)` | The first target of a field named in `references` (an `EmDashEntry`), or `undefined` |
 | `h.references(field)` | Every target of a field named in `references`, in the editor's order |
+| `h.once(key, load)` | One result for the entries mapped together (one list, one `get`): `load` runs once. For another collection's entries, e.g. a roster indexed by slug. The next call loads again, so an edit shows. Pass `h.ctx` on inside `load`. |
 | `h.ctx` | The request context `map` runs in. Pass it to nested collection calls, e.g. `projects.get(slug, h.ctx)`, so their cache hints reach the route cache |
 
 ### References
@@ -97,7 +99,8 @@ const projects = emdashCollection<Project>({
 ```
 
 - `get(slug)` passes `references` to `getEmDashEntry`, so the targets come with the entry in one call.
-- `list()` loads the targets per entry, all at the same time: one `getEmDashEntry(collection, slug, { references })` per entry. EmDash 1.1 cannot batch references for a list: `getEmDashCollection` has no `references` option, and it refuses reference fields in `where` and `orderBy`. `getEmDashEntry` uses EmDash's object cache and returns a cache hint that covers the targets, and the kit forwards it. If a later EmDash adds a batched list option, only this kit changes.
+- `list()` loads the targets per entry, all at the same time: one `getEmDashEntry(collection, slug, { references })` per entry. EmDash (1.4 too) cannot batch references for a list: `getEmDashCollection` has no `references` option, and it refuses reference fields in `where` and `orderBy`. `getEmDashEntry` uses EmDash's object cache and returns a cache hint that covers the targets, and the kit forwards it. If a later EmDash adds a batched list option, only this kit changes.
+- `needsReferences(q)` returning false makes a list (`list`, `slugs`, `count`) read no references: `h.reference()` is empty for each entry. Use it for a query of your model that leaves those values off in every source, and that your `filter` and `sort` do not need them for. `get` always loads them.
 - Each field returns at most EmDash's page limit: 50 targets. The kit asks for the first page only (`references: { field: true }`), so a field with more than 50 targets is cut at 50.
 - A missing, deleted (trashed) or unpublished target is left out: `h.reference()` gives `undefined`, `h.references()` skips it. Nothing throws. A backend error still throws.
 - Targets come without taxonomy terms or bylines (EmDash does not load them for references).

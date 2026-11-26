@@ -1,5 +1,9 @@
 # Astronomic Vesper
 
+[![The Vesper demo home page for Rowan Ellery: a large headline about chasing light above treeline, a short bio, the Now line, social links and the top of a band of cut-corner photos](.github/hero.webp)](https://astronomic.dev/themes/vesper)
+
+Screenshots, docs and the live demo at [astronomic.dev/themes/vesper](https://astronomic.dev/themes/vesper).
+
 A free Astro theme for a personal site: a blog and a portfolio in one. The demo is a fictional designer and developer who writes, ships projects, gives talks and takes film photos outdoors. It has a home page with a photo collage, articles (with categories, tags and series), projects, speaking, uses, a Now page, an about page with a work history, search and a privacy page.
 
 Content comes from Markdown files in `content/` by default. EmDash is supported as a second source.
@@ -17,7 +21,7 @@ pnpm test:units     # the theme's unit tests
 
 The shared code is in `packages/`. It is part of this repo, so you can change it as you need:
 
-- `@astronomic/ui`: the components and design tokens.
+- `@astronomic-dev/ui`: the components and design tokens.
 - `@astronomic/content`: the content sources and their contract.
 - `@astronomic/theme-core`: the theme plumbing (routes, meta tags, feeds, share images, search parts and the test runners).
 
@@ -128,7 +132,7 @@ The privacy page (`content/pages/privacy.md`) is a template. The theme has no ba
 
 ## Search, feed and share images
 
-A static build indexes posts, projects and pages with Pagefind after the build (`/search`); try it with `pnpm build`, then `pnpm preview`. With EmDash, the search page asks EmDash on each request. A page hidden from search engines is not in the index.
+Vesper uses [Astronomic Search](https://astronomic.dev/docs/search). The Search link in the footer, the form on `/articles`, Cmd+K or Ctrl+K, and `/` open the search dialog; `/search` is the results page. A static build indexes the built pages (posts, projects, `/speaking`, `/uses` and the other pages) into `dist/_search/`, so there is no index in `pnpm dev`: try it with `pnpm build`, then `pnpm preview`. With EmDash, the search plugin builds the index from your published content and keeps it fresh. With JavaScript off, a static `/search` shows links to browse, and with EmDash it lists the results from the server. A page hidden from search engines is not in the index.
 
 The feed is at `/rss.xml`, the sitemap at `/sitemap.xml` and robots.txt at `/robots.txt` (all in `src/pages/`). Every public page gets a 1200 x 630 share image at `/og/…/card.png`; an entry with an SEO image uses it, and a post or project with its own photo uses that photo. The card's font and colors are in `src/share-card.ts`.
 
@@ -156,3 +160,11 @@ Run `pnpm dev`, then open `/system`. It shows the colors, type, components and s
 - Demo photos: CC0; replace them with your own. Their sources are in `content/media/CREDITS.md`.
 - Icons: the social icons are from Simple Icons (CC0) or drawn for the theme (MIT). The LinkedIn logo is a trademark of LinkedIn Corporation, used only to link to a LinkedIn profile. See `src/icons/CREDITS.md`. Brand marks belong to their owners.
 - Parts of the EmDash setup come from the EmDash starter template, under the MIT License (`LICENSE-EMDASH`).
+
+## More from Astronomic
+
+- [Astronomic UI](https://astronomic.dev/ui): free Astro components and sections on one set of tokens.
+- [Astronomic Search](https://astronomic.dev/plugins/search): free, typo-tolerant site search for Astro.
+- [Astronomic Starter](https://astronomic.dev/themes/starter): a free Astro starter for a small product site, with a blog and guides.
+- [wp-esc](https://astronomic.dev/learn/wordpress): plan a move from WordPress to Astro or EmDash.
+- [All Astronomic themes](https://astronomic.dev/themes)

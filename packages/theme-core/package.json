@@ -34,7 +34,7 @@
   "dependencies": {
     "@astrojs/rss": "^4.0.19",
     "@astronomic/content": "workspace:*",
-    "@astronomic/ui": "workspace:*",
+    "@astronomic-dev/ui": "workspace:*",
     "@resvg/resvg-js": "^2.6.2",
     "pagefind": "^1.5.2",
     "satori": "0.35.0"

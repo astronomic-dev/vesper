@@ -84,6 +84,14 @@ export type EmDashHelpers = {
 	/** Every published target of a reference field named in `references`, in the editor's order. */
 	references(field: string): EmDashEntry[];
 	/**
+	 * Runs `load` once for the entries mapped together (one list, one `get`)
+	 * and gives each of them its result, e.g. a roster indexed by slug:
+	 * `h.once("authors", () => authorIndex(h.ctx))`. The next call maps anew
+	 * and loads again, so an edit shows. Name each shared value with its own
+	 * `key`.
+	 */
+	once<T>(key: string, load: () => Promise<T>): Promise<T>;
+	/**
 	 * The request context `map` runs in. Pass it to nested collection calls
 	 * (`other.get(slug, h.ctx)`) so their cache hints reach the route cache.
 	 */
@@ -119,14 +127,26 @@ export type EmDashCollectionOptions<E extends { slug: string }, Q = {}> = {
 	/**
 	 * Reference fields to load, by field slug. `h.reference()` and
 	 * `h.references()` read them. `get` loads them with the entry; `list`
-	 * loads them per entry, in parallel (EmDash 1.1 cannot batch them; see
+	 * loads them per entry, in parallel (EmDash 1.4 cannot batch them; see
 	 * README). At most EmDash's page limit (50) targets per field.
 	 */
 	references?: string[];
+	/**
+	 * Whether a list for `q` (`list`, `slugs`, `count`) loads `references`.
+	 * Default: always. When it answers false, no reference is read and
+	 * `h.reference()` is empty for every entry of that list. So answer false
+	 * only for a query whose entries come without those values in every source
+	 * (the product's model says so), and that `filter` and `sort` need none of
+	 * them for. `get` always loads them.
+	 */
+	needsReferences?(q: Q): boolean;
 };
 
 /** Loaded reference targets, by field slug. */
 type LoadedReferences = Record<string, EmDashEntry[]>;
+
+/** What `h.once` loaded for one mapped set, by key. Never kept longer. */
+type Shared = Map<string, Promise<unknown>>;
 
 /**
  * Plain text of Portable Text blocks. A heading ends a sentence, so it does
@@ -247,6 +267,7 @@ export function emdashCollection<E extends { slug: string }, Q = {}>(
 		entry: EmDashEntry,
 		terms: Record<string, TaxonomyTerm[]>,
 		refs: LoadedReferences,
+		shared: Shared,
 		ctx?: ContentContext,
 		withSeo = false,
 		listNoindex = false,
@@ -278,6 +299,16 @@ export function emdashCollection<E extends { slug: string }, Q = {}>(
 			seo: async () => (withSeo ? seoFor(entry, ctx) : listNoindex ? listSeo(entry, ctx) : undefined),
 			reference: (field) => targets(field)[0],
 			references: (field) => [...targets(field)],
+			once<T>(key: string, load: () => Promise<T>) {
+				const known = shared.get(key) as Promise<T> | undefined;
+				if (known) return known;
+				// Kept before `load` runs, so a throw that comes at once is shared too.
+				const loaded = Promise.resolve().then(load);
+				// A `map` may await it later: it still gets the error, and one that comes first is not "unhandled".
+				loaded.catch(() => {});
+				shared.set(key, loaded);
+				return loaded;
+			},
 			ctx,
 		};
 	}
@@ -304,7 +335,7 @@ export function emdashCollection<E extends { slug: string }, Q = {}>(
 		: undefined;
 
 	/**
-	 * Reference targets for many entries. EmDash 1.1 has no batched form:
+	 * Reference targets for many entries. EmDash (1.4 too) has no batched form:
 	 * `getEmDashCollection` takes no `references` option and refuses reference
 	 * fields in `where`/`orderBy` (their links are not stored on the entry). So
 	 * this runs one `getEmDashEntry(name, slug, { references })` per entry, all
@@ -330,41 +361,48 @@ export function emdashCollection<E extends { slug: string }, Q = {}>(
 		return Object.fromEntries(referenceFields.map((field) => [field, (pages[field]?.entries ?? []) as EmDashEntry[]]));
 	}
 
-	function filter(q: Q & PageQuery = {} as Q & PageQuery): CollectionFilter {
+	function filter(q: Q & PageQuery = {} as Q & PageQuery, page: PageQuery = {}): CollectionFilter {
 		const where = Object.fromEntries(
 			Object.entries(opts.where?.(q) ?? {}).filter(([, v]) => v !== undefined),
 		) as Record<string, WhereValue>;
 		return {
 			...(opts.orderBy ? { orderBy: opts.orderBy(q) } : {}),
 			...(Object.keys(where).length ? { where } : {}),
-			...(q.limit ? { limit: q.limit } : {}),
-			...(q.offset ? { offset: q.offset } : {}),
+			...(page.limit ? { limit: page.limit } : {}),
+			...(page.offset !== undefined ? { offset: page.offset } : {}),
 		};
 	}
 
-	async function query(q: (Q & PageQuery) | undefined, ctx: ContentContext | undefined, what: string) {
-		const result = await getEmDashCollection(name, filter(q));
+	/** Every entry that matches `q`, or one `page` of them. */
+	async function query(q: (Q & PageQuery) | undefined, ctx: ContentContext | undefined, what: string, page?: PageQuery) {
+		const result = await getEmDashCollection(name, filter(q, page));
 		if (result.error) fail(`${name}.${what}`, result.error);
 		ctx?.cache(result.cacheHint);
 		return result;
 	}
 
-	/** Maps raw entries. Terms and references load in batches first. */
-	/** `listNoindex`: the query asked for `seo: true`, so `h.seo()` loads each entry's noindex. */
-	async function mapEntries(entries: EmDashEntry[], ctx: ContentContext | undefined, listNoindex = false): Promise<E[]> {
+	/**
+	 * Maps the raw entries of a list for `q`. Terms and references load first.
+	 * With `seo: true` in the query, `h.seo()` loads each entry's noindex.
+	 */
+	async function mapEntries(entries: EmDashEntry[], q: (Q & PageQuery) | undefined, ctx: ContentContext | undefined): Promise<E[]> {
+		const wanted = (q ?? {}) as Q & PageQuery;
+		const withReferences = opts.needsReferences?.(wanted) ?? true;
+		const shared: Shared = new Map();
 		// EmDash usually folds terms into the list query. If it did not, load each taxonomy in one batch.
 		const missing = taxonomies.length > 0 && entries.some((e) => !e.data.terms);
 		const ids = entries.map((e) => e.data.id);
 		const [batched, refs] = await Promise.all([
 			missing ? Promise.all(taxonomies.map((tax) => getTermsForEntries(name, ids, tax))) : Promise.resolve([]),
-			loadReferences(entries, ctx),
+			withReferences ? loadReferences(entries, ctx) : [],
 		]);
+		// Async, so a `map` that throws at once does not leave another entry's promise unwatched.
 		return Promise.all(
-			entries.map((entry, n) => {
+			entries.map(async (entry, n) => {
 				const terms = missing
 					? Object.fromEntries(taxonomies.map((tax, i) => [tax, batched[i]?.get(entry.data.id) ?? []]))
 					: (entry.data.terms ?? {});
-				return opts.map(entry, helpers(entry, terms, refs[n] ?? {}, ctx, false, listNoindex));
+				return opts.map(entry, helpers(entry, terms, refs[n] ?? {}, shared, ctx, false, Boolean(wanted.seo)));
 			}),
 		);
 	}
@@ -377,7 +415,7 @@ export function emdashCollection<E extends { slug: string }, Q = {}>(
 		const wanted = (q ?? {}) as Q;
 		const { limit: _l, offset: _o, ...rest } = wanted as Q & PageQuery;
 		const result = await query(rest as Q & PageQuery, ctx, what);
-		const items = await mapEntries(result.entries as EmDashEntry[], ctx, Boolean((wanted as PageQuery).seo));
+		const items = await mapEntries(result.entries as EmDashEntry[], wanted as Q & PageQuery, ctx);
 		const kept = opts.filter ? items.filter((e) => opts.filter!(e, wanted)) : items;
 		if (opts.sort) kept.sort((a, b) => opts.sort!(a, b, wanted));
 		return kept;
@@ -392,8 +430,15 @@ export function emdashCollection<E extends { slug: string }, Q = {}>(
 				const end = q?.limit === undefined ? total : offset + q.limit;
 				return { items: items.slice(offset, end), hasMore: end < total, total };
 			}
-			const result = await query(q, ctx, "list");
-			const items = await mapEntries(result.entries as EmDashEntry[], ctx, Boolean(q?.seo));
+			// EmDash reads a limit of 0 as no limit. Ask for one entry instead, only to know whether there is one. With
+			// an offset, 0 too, it reads just that one; without, it rounds a small limit up to 10 to share the read.
+			if (q?.limit === 0) {
+				const { entries } = await query(q, ctx, "list", { limit: 1, offset: q.offset ?? 0 });
+				return { items: [], hasMore: entries.length > 0 };
+			}
+			// No offset of 0 here, so small first pages can share that read.
+			const result = await query(q, ctx, "list", { limit: q?.limit, offset: q?.offset || undefined });
+			const items = await mapEntries(result.entries as EmDashEntry[], q, ctx);
 			const hasMore = q?.limit ? (result.hasMore ?? Boolean(result.nextCursor)) : false;
 			return { items, hasMore };
 		},
@@ -404,7 +449,7 @@ export function emdashCollection<E extends { slug: string }, Q = {}>(
 			ctx?.cache(result.cacheHint satisfies CacheHint);
 			if (!result.entry) return undefined;
 			const entry = result.entry as EmDashEntry;
-			return opts.map(entry, helpers(entry, entry.data.terms ?? {}, attached(entry), ctx, true));
+			return opts.map(entry, helpers(entry, entry.data.terms ?? {}, attached(entry), new Map(), ctx, true));
 		},
 		// EmDash has no slug-only or count query; one unpaged query is the cheapest.
 		// `filter` and `sort` need mapped entries, so then every match is mapped

@@ -2,8 +2,8 @@
  * The parity runner (a theme's `pnpm test:parity [source ...]`, default:
  * markdown emdash mixed).
  *
- * Builds each source into its own out dir (dist-<source>), runs conformance,
- * checks expected page statuses and the theme's page assertions, then
+ * Builds each source into its own out dir (dist-<source>), runs conformance
+ * (the built site must name that source), checks expected page statuses and the theme's page assertions, then
  * compares every source against the first:
  *   - model snapshots (with `snapshot: true`): each collection's mapped data,
  *     normalized (/_snapshot.json, see `contentTests`);
@@ -39,7 +39,7 @@ export async function runParity(config) {
 			}
 			const server = await h.serve(outDir);
 			try {
-				const result = await h.conformance();
+				const result = await h.conformance(source);
 				printConformance(result);
 				if (result.problems.length) failed = true;
 				const pageProblems = await config.assertPages(server.kind, h);
@@ -47,7 +47,7 @@ export async function runParity(config) {
 				if (pageProblems.length) failed = true;
 				results[source] = await h.fetchPages(paths);
 				if (config.snapshot) {
-					snapshots[source] = await h.snapshot();
+					snapshots[source] = await h.snapshot(source);
 					if (snapshots[source].error) {
 						console.log(`SNAPSHOT  ${snapshots[source].error}`);
 						failed = true;
@@ -70,8 +70,8 @@ export async function runParity(config) {
 		for (const other of rest) {
 			console.log(`\n=== ${first} vs ${other} ===`);
 			if (config.snapshot) {
-				const { adapter: _a, ...want } = snapshots[first] ?? {};
-				const { adapter: _b, ...got } = snapshots[other] ?? {};
+				const { adapter: _a, error: _c, ...want } = snapshots[first] ?? {};
+				const { adapter: _b, error: _d, ...got } = snapshots[other] ?? {};
 				const diffs = diffJson(want, got);
 				const sizes = (o) => Object.values(o ?? {}).reduce((n, v) => n + Object.keys(v ?? {}).length, 0);
 				console.log(
